@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menarat Al Haouz - Gestion</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Menarat Gestion">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- LOGIN -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <h2>🔐 Connexion</h2>
+            <p>Entrez vos identifiants</p>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button type="button" id="btnAdmin" onclick="switchLoginType('admin')" style="flex: 1; padding: 10px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">👑 Admin</button>
+                <button type="button" id="btnEmploye" onclick="switchLoginType('employe')" style="flex: 1; padding: 10px; background: #e2e8f0; color: #333; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">👤 Employé</button>
+            </div>
+
+            <div id="formAdmin">
+    <!-- حيدنا خانة الإيميل حيت دابا كنستعملو admin@menarat.ma مباشرة -->
+    <input type="password" id="loginAdminPass" placeholder="Mot de passe Admin" style="margin-bottom:10px;">
+    <button onclick="checkAdminLogin()" class="btn-primary" style="width: 100%;">Se connecter (Admin)</button>
+</div>
+
+            <div id="formEmploye" style="display: none;">
+                <input type="email" id="loginEmpNom" placeholder="E-mail (ex: hicham@menarat.ma)" style="margin-bottom:10px;">
+                <input type="password" id="loginEmpPass" placeholder="Mot de passe (1234)" style="margin-bottom:10px;">
+                <button onclick="checkEmployeLogin()" class="btn-primary" style="width: 100%;">Se connecter (Employé)</button>
+            </div>
+
+            <p id="loginError" style="color:red; display:none; margin-top:10px; font-weight: bold;">❌ Identifiants incorrects</p>
+        </div>
+    </div>
+    <!-- شاشة التحميل (Loading Spinner) -->
+    <div id="loadingOverlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); z-index: 99999; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(4px);">
+        <div style="width: 50px; height: 50px; border: 5px solid #334155; border-top: 5px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <p style="color: white; margin-top: 20px; font-weight: bold; font-family: 'Cairo', sans-serif;">⏳ جاري تحميل البيانات...</p>
+    </div>
+
+    <style>
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+    <!-- MAIN APP -->
+    <div id="mainApp" style="display: none;">
+        <!-- زر فتح القائمة (كيبان غير فـ التيليفون) -->
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        
+        <aside class="sidebar" id="sidebar">
+            <!-- زر سد القائمة (كيبان غير فـ التيليفون) -->
+            <button class="close-sidebar" onclick="toggleSidebar()">✖</button>
+            
+            <div class="sidebar-logo" style="position: relative; padding: 15px 20px 20px; border-bottom: 1px solid var(--border); text-align: center;">
+                <img src="logo.png" alt="Menarat Al Haouz" style="max-width: 110px; display: block; margin: 0 auto 10px;">
+                <p style="display: flex; justify-content: center; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); margin: 0; font-weight: 500;">
+                    <span id="sidebarYear">Gestion 2026-2027</span>
+                    <button onclick="editYear()" style="background: none; border: none; cursor: pointer; font-size: 12px; color: #3b82f6;">✏️</button>
+                </p>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="sidebar-link active" data-tab="accueil" onclick="showPage('accueil')">🏠 <span>Accueil</span></div>
+                <div class="sidebar-link" data-tab="ajouter" onclick="showPage('ajouter')">➕ <span>Ajouter</span></div>
+                <div class="sidebar-link" data-tab="operations" onclick="showPage('operations')">📋 <span>Opérations</span></div>
+                <div class="sidebar-link admin-only" data-tab="credits" onclick="showPage('credits')">💳 <span>Crédits</span></div>
+                <div class="sidebar-link admin-only" data-tab="produits" onclick="showPage('produits')">📦 <span>Produits</span></div>
+                <div class="sidebar-link admin-only" data-tab="fournisseurs" onclick="showPage('fournisseurs')">🚚 <span>Fournisseurs</span></div>
+                <div class="sidebar-link admin-only" data-tab="employes" onclick="showPage('employes')">👥 <span>Employés</span></div>
+                <div class="sidebar-link admin-only" data-tab="zones" onclick="showPage('zones')">🌍 <span>Zones</span></div>
+                <div class="sidebar-link admin-only" data-tab="bilan" onclick="showPage('bilan')">📊 <span>Bilan</span></div>
+            </nav>
+            <div class="sidebar-footer">
+    <button class="btn-secondary" onclick="openChangePasswordModal()" style="width:100%; justify-content:center;">🔑 Changer Mot de Passe</button>
+    <button class="btn-secondary" onclick="logout()" style="width:100%; justify-content:center;">🚪 Quitter</button>
+  </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="top-bar" style="display:flex; justify-content:space-between; align-items:center;">
+                <h1 id="pageTitle">Tableau de bord</h1>
+                <div style="display:flex; align-items:center; gap:15px;">
+                    <input type="text" id="globalSearch" placeholder="🔍 Rechercher..." oninput="globalSearchFunc()" style="padding:6px 10px; border-radius:20px; border:1px solid #ccc; width:200px;">
+                    <button id="notifBtn" class="icon-btn" onclick="showNotifs()" style="position:relative;">🔔 <span id="notifBadge" style="position:absolute; top:-5px; right:-5px; background:red; color:white; border-radius:50%; font-size:10px; padding:2px 5px; display:none;">0</span></button>
+                    <span id="todayDate" style="font-size:13px; color:var(--text-muted);"></span>
+                    <button id="themeBtn" class="icon-btn" onclick="toggleTheme()">🌙</button>
+                </div>
+            </div>
+
+            <!-- ACCUEIL -->
+            <section class="page active" id="page-accueil">
+                <div id="alertStock" style="display:none; background:#fef2f2; color:#ef4444; border:1px solid #fecaca; padding:12px 15px; border-radius:8px; margin-bottom:20px; font-weight:bold; font-size:13px;">
+                    ⚠️ تنبيه: كاينين منتجات وصلو للـ 0 ولا قل من 5 فـ المخزن!
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card stat-green"><h3>Total Ventes</h3><p id="statTotal">0.00 DH</p></div>
+                    <div class="stat-card stat-blue"><h3>Quantité Totale</h3><p id="statQuantite">0</p></div>
+                    <div class="stat-card stat-orange"><h3>Opérations</h3><p id="statOperations">0</p></div>
+                    <div class="stat-card stat-purple"><h3>Produits</h3><p id="statProduits">0</p></div>
+                </div>
+                <div class="card">
+                    <div class="stats-grid" style="margin-top: 20px;">
+                    <div class="stat-card" style="background: #8b5cf6;"><h3>Ventes Aujourd'hui</h3><p id="statVentesJour">0.00 DH</p></div>
+                    <div class="stat-card" style="background: #0ea5e9;"><h3>Ventes Ce Mois</h3><p id="statVentesMois">0.00 DH</p></div>
+                    <div class="stat-card" style="background: #f59e0b;"><h3>Opérations Aujourd'hui</h3><p id="statOpsJour">0</p></div>
+                </div>
+                    <h2>Dernières Opérations</h2>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead><tr><th>Date</th><th>Type</th><th>Bénéf./Four.</th><th>Produit</th><th>Qté</th><th>Total</th></tr></thead>
+                            <tbody id="recentOperations"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>Top 5 Produits (Ventes)</h2>
+                    <div class="chart-box" style="height: 250px;">
+                        <canvas id="chartTopProduitsHome"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AJOUTER -->
+            <section class="page" id="page-ajouter">
+                <div class="card">
+                    <h2>Nouvelle Opération (Facture)</h2>
+                    <form id="formOperation" class="form-grid">
+                        <div class="form-group">
+                            <label>Type d'opération</label>
+                            <select id="opType" required onchange="toggleTypeOperation()">
+                                <option value="vente">📤 Vente (Sortie)</option>
+                                <option value="achat">📥 Achat (Entrée)</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Date</label><input type="date" id="opDate" required></div>
+                        <div class="form-group">
+                            <label>Mois</label>
+                            <select id="opMois" required></select>
+                        </div>
+                        <div class="form-group group-vente"><label>Employé</label><select id="opEmploye"></select></div>
+                        <div class="form-group group-vente"><label>Zone</label><select id="opZone"></select></div>
+                        <div class="form-group group-vente">
+                            <label>Paiement</label>
+                            <select id="opPaiement"><option value="Payé">✅ Payé</option><option value="Crédit">⏳ Crédit</option></select>
+                 </div>
+                        
+                        <div class="form-group group-achat" style="display: none;">
+                            <label>Fournisseur</label>
+                            <select id="opFournisseur"><option value="">-- اختر --</option></select>
+                               </div>
+                        
+                        <div class="form-group full-width" style="padding:15px; border-radius:8px; margin-top:10px; border: 1px dashed var(--border);">
+                            <div style="display:flex; gap:10px; width:100%; align-items:flex-end;">
+                                <div class="form-group" style="flex:2;"><label>Produit</label><select id="factProduit" onchange="autoFillPrix()"></select></div>
+                                <div class="form-group" style="flex:1;"><label>Quantité</label><input type="number" id="factQte" min="0" step="0.01"></div>
+                                <div class="form-group" style="flex:1;"><label>Prix</label><input type="number" id="factPrix" min="0" step="0.01"></div>
+                                <button type="button" onclick="ajouterLigneFacture()" class="btn-primary" style="height:38px;">➕ Ajouter</button>
+                            </div>
+                        </div>
+                        <div class="form-group full-width">
+                            <table class="table" style="margin-top:15px;">
+                                <thead><tr><th>Produit</th><th>Qté</th><th>Prix</th><th>Total</th><th>Action</th></tr></thead>
+                                <tbody id="tablePanier"></tbody>
+                                <tfoot><tr><th colspan="3" style="text-align:left;">TOTAL FACTURE:</th><th id="totalFacture">0.00 DH</th><th></th></tr></tfoot>
+                            </table>
+                        </div>
+                        <div class="form-group full-width">
+                            <button type="submit" class="btn-primary" style="font-size:16px;">✅ Valider la Facture</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- OPERATIONS -->
+            <section class="page" id="page-operations">
+                <div class="card">
+                    <div class="admin-only" style="margin-bottom: 15px; display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap;">
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button onclick="exportOperationsCSV()" class="btn-primary" style="background: #0ea5e9;">📤 Export CSV</button>
+                            <input type="file" id="excelStockInput" accept=".xlsx, .xls" style="display: none;" onchange="importExcel(event)">
+                            <button onclick="document.getElementById('excelStockInput').click()" class="btn-primary" style="background: #10b981;">📥 Importer Excel (Stock)</button>
+                            
+                            <input type="file" id="excelFactureInput" accept=".xlsx, .xls" style="display: none;" onchange="importExcelFactures(event)">
+                            <button onclick="document.getElementById('excelFactureInput').click()" class="btn-primary" style="background: #8b5cf6;">📥 Importer Factures (Fournisseurs)</button>
+                            <button onclick="exportRapportMensuelPDF()" class="btn-primary" style="background: #f59e0b;">📅 Rapport Mensuel PDF</button>
+                            <input type="file" id="excelSmartInput" accept=".xlsx, .xls" style="display: none;" onchange="importExcelSmart(event)">
+                            <button onclick="document.getElementById('excelSmartInput').click()" class="btn-primary" style="background: #f59e0b;">🤖 Import Excel / WPS (Smart)</button>
+                        </div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button onclick="exportFullBackup()" class="btn-primary" style="background: #0ea5e9;">💾 Backup</button>
+                            <input type="file" id="backupInput" accept=".json" style="display: none;" onchange="importFullBackup(event)">
+                            <button onclick="document.getElementById('backupInput').click()" class="btn-primary" style="background: #6366f1;">📂 Restore</button>
+                        </div>
+                    </div>
+
+                    <div class="filters" style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <label style="font-size: 13px; font-weight: bold;">📅 Du :</label>
+                        <input type="date" id="filterDateFrom" onchange="renderOperations()" style="padding: 6px; border-radius: 6px; border: 1px solid #ccc;">
+                        
+                        <label style="font-size: 13px; font-weight: bold;">Au :</label>
+                        <input type="date" id="filterDateTo" onchange="renderOperations()" style="padding: 6px; border-radius: 6px; border: 1px solid #ccc;">
+                        
+                        <button onclick="filterToday()" class="btn-secondary" style="font-size: 12px; padding: 6px 10px;">📍 Aujourd'hui</button>
+                        <button onclick="clearFilters()" class="btn-secondary" style="font-size: 12px; padding: 6px 10px;">🔄 Reset</button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="table">
+                            <thead><tr><th>Date</th><th>Type</th><th>Bénéf./Four.</th><th>Produit</th><th>Unité</th><th>Qté</th><th>Prix</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead>
+                            <tbody id="tbodyOperations"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CREDITS -->
+            <section class="page" id="page-credits">
+                <div class="card">
+                    <h2>💳 Gestion des Crédits (Dettes)</h2>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead><tr><th>Date</th><th>Employé</th><th>Produit</th><th>Qté</th><th>Total (DH)</th><th>Action</th></tr></thead>
+                            <tbody id="tbodyCredits"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- BILAN -->
+            <section class="page" id="page-bilan">
+                <div class="stats-grid" style="margin-bottom: 20px;">
+                    <div class="stat-card stat-green"><h3>📤 Total Ventes</h3><p id="bilanTotalVentes">0.00 DH</p></div>
+                    <div class="stat-card stat-blue"><h3>📥 Total Achats</h3><p id="bilanTotalAchats">0.00 DH</p></div>
+                    <div class="stat-card stat-purple"><h3>💰 Bénéfice Net</h3><p id="bilanBenefice">0.00 DH</p></div>
+                    <div class="stat-card stat-orange"><h3>📦 Valeur du Stock</h3><p id="bilanValeurStock">0.00 DH</p></div>
+                </div>
+
+                <div class="card">
+                    <div class="filters">
+                        <select id="bilanType" onchange="renderBilan()">
+                            <option value="global">📊 Global</option>
+                            <option value="mois">📅 Par Mois</option>
+                            <option value="employe">👤 Par Employé</option>
+                            <option value="zone">🌍 Par Zone</option>
+                            <option value="produit">📦 Par Produit</option> 
+                            <option value="fournisseur">🚚 Par Fournisseur</option>
+                        </select>
+                        <button onclick="exportPDFGlobal()" class="btn-export">📄 Rapport Global PDF</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead id="bilanHead"></thead>
+                            <tbody id="bilanBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-box"><h4>Ventes par Mois</h4><canvas id="chartMois"></canvas></div>
+                    <div class="chart-box"><h4>Ventes par Employé</h4><canvas id="chartEmploye"></canvas></div>
+                    <div class="chart-box"><h4>Ventes par Zone</h4><canvas id="chartZone"></canvas></div>
+                    <div class="chart-box"><h4>Top 5 Produits</h4><canvas id="chartProduit"></canvas></div>
+                </div>
+            </section>
+
+            <!-- PRODUITS -->
+            <section class="page" id="page-produits">
+                <div class="card">
+                    <h2>Ajouter un produit</h2>
+                    <form id="formProduit" class="form-grid">
+                        <div class="form-group"><label>Nom</label><input type="text" id="newProduitNom" required></div>
+                        <div class="form-group"><label>Unité</label><input type="text" id="newProduitUnite" required></div>
+                        <div class="form-group"><label>Prix (DH)</label><input type="number" id="newProduitPrix" step="0.01" value="0"></div>
+                        <div class="form-group"><label>Stock Initial</label><input type="number" id="newProduitStock" step="0.01" value="0" required></div>
+                        <div class="form-group"><label>Fournisseur</label><select id="newProduitFournisseur"></select></div>
+                        <div class="form-group"><button type="submit" class="btn-primary">Ajouter</button></div>
+                    </form>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead><tr><th>#</th><th>Nom</th><th>Unité</th><th>Prix</th><th>Stock Actuel</th><th>Fournisseur</th><th>Actions</th></tr></thead>
+                            <tbody id="tbodyProduits"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- EMPLOYES -->
+            <section class="page" id="page-employes">
+                <div class="card">
+                    <h2>Ajouter un employé</h2>
+                    <form id="formEmploye" class="form-grid" onsubmit="ajouterEmploye(event)">
+                        <button type="button" onclick="openAddUserFirebase()" class="btn-primary" style="background: #8b5cf6; margin-bottom: 10px;">🔐 Ajouter un compte Firebase (E-mail)</button>
+                        <div class="form-group"><label>Nom</label><input type="text" id="newEmployeNom" required></div>
+                        <div class="form-group"><button type="submit" class="btn-primary">Ajouter</button></div>
+                    </form>
+                </div>
+                <div class="card">
+                    <h2>Liste des employés</h2>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead><tr><th>#</th><th>Nom</th><th>Total Ventes (DH)</th><th>Total Sortie (Qté)</th><th>Action</th></tr></thead>
+                            <tbody id="tbodyEmployes"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ZONES -->
+            <section class="page" id="page-zones">
+                <div class="card">
+                    <h2>Ajouter une zone</h2>
+                    <form id="formZone" class="form-grid">
+                        <div class="form-group"><label>Nom</label><input type="text" id="newZoneNom" required></div>
+                        <div class="form-group"><button type="submit" class="btn-primary">Ajouter</button></div>
+                    </form>
+                </div>
+                <div class="card">
+                    <h2>Liste des zones</h2>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead><tr><th>#</th><th>Nom</th><th>Total Ventes (DH)</th><th>Total Sortie (Qté)</th><th>Action</th></tr></thead>
+                            <tbody id="tbodyZones"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FOURNISSEURS -->
+            <section class="page" id="page-fournisseurs">
+                <div class="card">
+                    <h2>Ajouter un fournisseur</h2>
+                    <form id="formFournisseur" class="form-grid">
+                        <div class="form-group"><label>Nom</label><input type="text" id="newFournisseurNom" required></div>
+                        <div class="form-group"><label>Téléphone</label><input type="text" id="newFournisseurTel"></div>
+                        <div class="form-group"><button type="submit" class="btn-primary">Ajouter</button></div>
+                    </form>
+                </div>
+                <div class="card">
+                    <h2>Liste des fournisseurs</h2>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead><tr><th>#</th><th>Nom</th><th>Téléphone</th><th>Action</th></tr></thead>
+                            <tbody id="tbodyFournisseurs"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL FACTURE -->
+    <div id="modalFacture" class="login-container" style="display:none; background:rgba(0,0,0,0.5);">
+        <div class="login-box" style="text-align:right; max-width:500px;" id="factureContent"></div>
+    </div>
+
+    <!-- MODAL MODIFIER PRODUIT -->
+    <div id="modalProduit" class="login-container" style="display:none; background:rgba(0,0,0,0.5);">
+        <div class="login-box" style="text-align:right;">
+            <h2 style="text-align:center; margin-bottom:20px;">Modifier le produit ✏️</h2>
+            <form id="formEditProduit">
+                <input type="hidden" id="editProduitIndex">
+                <div class="form-group" style="margin-bottom:10px;"><label>Nom</label><input type="text" id="editProduitNom" required></div>
+                <div class="form-group" style="margin-bottom:10px;"><label>Unité</label><input type="text" id="editProduitUnite" required></div>
+                <div class="form-group" style="margin-bottom:10px;"><label>Prix</label><input type="number" id="editProduitPrix" step="0.01" required></div>
+                <div class="form-group" style="margin-bottom:10px;"><label>Stock Initial</label><input type="number" id="editProduitStock" step="0.01" required></div>
+                <div class="form-group" style="margin-bottom:20px;"><label>Fournisseur</label><select id="editProduitFournisseur"></select></div>
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <button type="submit" class="btn-primary">Sauvegarder 💾</button>
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('modalProduit').style.display='none'">Annuler ❌</button>
+                </div>
+            </form>
+        </div>
+    </div>
+<!-- Firebase SDK -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+    const firebaseConfig = {
+        apiKey: "AIzaSyAcCtoyQOpe0zHbAvwN5lMXDYnmRNl_5Ho",
+        authDomain: "menarat-gestion.firebaseapp.com",
+        projectId: "menarat-gestion",
+        storageBucket: "menarat-gestion.firebasestorage.app",
+        messagingSenderId: "799719656099",
+        appId: "1:799719656099:web:a4eb1a79f7c68789d14d16"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    window.firebaseAuth = auth;
+    window.firebaseDB = db;
+    window.firebaseReady = true;
+</script>
+<script src="script.js"></script>
+    
+    
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('PWA error:', err));
+            });
+        }
+    </script>
+  <script>
+    // هاد السطر كيتأكد بلي customConfirm موجودة قبل ما تستعمل
+    window.customConfirm = window.customConfirm || function(msg) { return Promise.resolve(confirm(msg)); };
+</script>
+    <!-- MODAL CHANGE PASSWORD -->
+    <div id="modalChangePassword" class="login-container" style="display:none; background:rgba(0,0,0,0.6); z-index: 10001;">
+        <div class="login-box" style="text-align:right; max-width:400px;">
+            <h2 style="text-align:center; margin-bottom:20px;">🔑 Changer Mot de Passe</h2>
+            
+            <div class="form-group" style="margin-bottom:10px;">
+                <label>Ancien mot de passe (الحالي)</label>
+                <input type="password" id="oldPassword" placeholder="••••••">
+            </div>
+            
+            <div class="form-group" style="margin-bottom:10px;">
+                <label>Nouveau mot de passe (الجديد)</label>
+                <input type="password" id="newPassword" placeholder="••••••">
+            </div>
+            
+            <div class="form-group" style="margin-bottom:20px;">
+                <label>Confirmer (تأكيد الجديد)</label>
+                <input type="password" id="confirmNewPassword" placeholder="••••••">
+            </div>
+            
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button type="button" class="btn-primary" onclick="changePassword()">💾 Sauvegarder</button>
+                <button type="button" class="btn-secondary" onclick="document.getElementById('modalChangePassword').style.display='none'">❌ Annuler</button>
+            </div>
+        </div>
+    </div>
+    <style>
+    /* نخبيو زر Netlify نهائياً بالكود فـ HTML باش نضمنو أنه كيتطبق */
+    iframe[title="Netlify"], 
+    #netlify-badge, 
+    .netlify-badge,
+    div[id^="netlify"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+    }
+</style>
+</body>
+</html>

@@ -301,13 +301,17 @@ select {
 }
 /* باش نضمنو أن الأزرار ديالنا فوق زر Netlify */
 .sidebar-footer {
+    padding: 10px 0.8rem 50px 0.8rem; /* 50px تحت باش نتفاداو Netlify */
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* المسافة بين الأزرار */
     position: relative;
-    z-index: 9999 !important; /* رقم عالي بزاف */
+    z-index: 100;
     background: var(--sidebar-bg);
-    padding-bottom: 20px; /* باش يبقى شي مساحة */
 }
 
-/* باش نخبيو زر Netlify نهائياً (أضمن حل) */
+/* باش نخبيو زر Netlify نهائياً (إلا كان مازال كيبان) */
 iframe[name="netlify-badge"],
 #netlify-badge,
 .netlify-badge {

@@ -496,14 +496,19 @@ iframe[name="netlify-badge"],
         border: none !important;
         padding: 0 !important;
         border-radius: 8px !important;
-        font-size: 18px !important;
+        font-size: 20px !important;
         width: 45px !important;
         height: 45px !important;
-        display: flex !important;
+        
         align-items: center !important;
         justify-content: center !important;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
     }
+     /* نخليو المحتوى الرئيسي ما يتغطاش بالزر */
+    .main-content {
+        padding-top: 70px !important;
+    }
+}
 
     /* نصلحو صفحة Ajouter باش ما تتأثرش */
     #page-ajouter .card {
@@ -547,4 +552,3 @@ iframe[name="netlify-badge"],
     #page-ajouter .form-group.full-width .btn-primary {
         width: 100% !important;
     }
-}

@@ -389,4 +389,50 @@ iframe[name="netlify-badge"],
         font-size: 1.3rem !important;
         text-align: center !important;
     }
+        /* --- إصلاحات لصفحة Ajouter (الفورم) فـ التيليفون --- */
+    
+    /* نخليو الفورم ياخد الشاشة كاملة */
+    .form-grid {
+        display: flex !important;
+        flex-direction: column !important; /* نخليو العناصر وحدة تحت وحدة */
+        gap: 15px !important;
+        width: 100% !important;
+    }
+
+    /* نخليو الخانات ديال الفورم تاخد العرض كامل */
+    .form-group {
+        width: 100% !important;
+        margin-bottom: 0 !important; /* نمسحو الهامش القديم */
+    }
+
+    /* نخليو الخانات الطويلة (بحال اللي فيها Ajouter) تتقسم مزيان */
+    .form-group.full-width {
+        width: 100% !important;
+        padding: 10px !important;
+    }
+
+    /* إصلاح الخانات الداخلية ديال المنتج (Produit, Quantité, Prix) */
+    .form-group.full-width > div {
+        display: flex !important;
+        flex-direction: column !important; /* نحطوهم وحدة تحت وحدة */
+        gap: 10px !important;
+        align-items: stretch !important;
+    }
+
+    /* إصلاح زر Ajouter باش ياخد العرض كامل */
+    .form-group.full-width button {
+        width: 100% !important;
+        margin-top: 5px !important;
+    }
+
+    /* إصلاح الجدول ديال السلة باش ما يتقطعش */
+    .table-container {
+        width: 100% !important;
+        overflow-x: auto !important; /* نخليو الجدول يقدر يتزحزح */
+    }
+
+    /* إصلاح زر Valider la Facture */
+    .form-group.full-width .btn-primary {
+        width: 100% !important;
+    }
 }

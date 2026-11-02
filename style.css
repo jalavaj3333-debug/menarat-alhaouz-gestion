@@ -459,7 +459,7 @@ iframe[name="netlify-badge"],
         display: flex !important;
         position: fixed !important;
         top: 15px !important;
-        left: 15px !important; 
+        right: 15px !important; 
         z-index: 10000 !important;
         background: #3b82f6 !important; 
         color: white !important;

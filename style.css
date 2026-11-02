@@ -435,4 +435,50 @@ iframe[name="netlify-badge"],
     .form-group.full-width .btn-primary {
         width: 100% !important;
     }
+        /* --- إصلاحات القائمة فـ التيليفون (لجميع الصفحات) --- */
+    
+    /* نخليو القائمة الجانبية مخفية وثابتة على اليمين */
+    .sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        right: -100% !important; 
+        width: 250px !important;
+        height: 100vh !important;
+        z-index: 9999 !important;
+        transition: right 0.3s ease !important;
+        background: var(--sidebar-bg) !important;
+        overflow-y: auto !important;
+    }
+
+    .sidebar.active {
+        right: 0 !important;
+    }
+
+    /* زر القائمة (☰) ثابت فوق على اليسار */
+    .menu-toggle {
+        display: flex !important;
+        position: fixed !important;
+        top: 15px !important;
+        left: 15px !important; 
+        z-index: 10000 !important;
+        background: #3b82f6 !important; 
+        color: white !important;
+        border: none !important;
+        padding: 10px 15px !important;
+        border-radius: 8px !important;
+        font-size: 20px !important;
+        width: 50px !important;
+        height: 50px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+    }
+
+    /* المحتوى الرئيسي ياخد الشاشة كاملة */
+    .main-content {
+        margin-right: 0 !important;
+        width: 100% !important;
+        padding: 10px !important;
+        padding-top: 80px !important; /* مساحة فوق باش ما يتغطاش المحتوى بالزر */
+    }
 }

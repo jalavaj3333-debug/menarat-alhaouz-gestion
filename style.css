@@ -454,12 +454,13 @@ iframe[name="netlify-badge"],
         right: 0 !important;
     }
 
-    /* زر القائمة (☰) ثابت فوق على اليسار */
+        /* زر القائمة (☰) ثابت فوق على اليمين */
     .menu-toggle {
         display: flex !important;
         position: fixed !important;
         top: 15px !important;
-        right: 15px !important; 
+        right: 15px !important; /* حطينا right بدل left */
+        left: auto !important; /* كنلغيو left */
         z-index: 10000 !important;
         background: #3b82f6 !important; 
         color: white !important;

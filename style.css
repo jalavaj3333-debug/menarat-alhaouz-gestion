@@ -319,7 +319,6 @@ iframe[name="netlify-badge"],
     visibility: hidden !important;
     opacity: 0 !important;
 }
-/* تعديلات خاصة بالتيليفون */
 @media (max-width: 768px) {
     /* نخليو القائمة الجانبية تغطي الشاشة كاملة */
     .sidebar {
@@ -331,7 +330,7 @@ iframe[name="netlify-badge"],
         z-index: 9999;
         transition: right 0.3s ease;
         background: var(--sidebar-bg);
-        overflow-y: auto; /* باش تقدر تهبط فيها إلا كانت طويلة */
+        overflow-y: auto;
     }
 
     /* ملي تكون القائمة محلولة، ترجع للشاشة */
@@ -341,7 +340,8 @@ iframe[name="netlify-badge"],
 
     /* نخليو المحتوى الرئيسي ياخد الشاشة كاملة */
     .main-content {
-        margin-right: 0 !important;
+        margin-right: 0 !important; /* حيدنا الهامش */
+        width: 100% !important; /* العرض كامل */
         padding: 10px;
     }
 
@@ -351,7 +351,7 @@ iframe[name="netlify-badge"],
         z-index: 10000;
         position: fixed;
         top: 15px;
-        left: 15px; /* ولا right حسب التصميم */
+        left: 15px;
     }
 
     /* نخليو الأزرار ديال Quitter و Changer Mot de Passe ثابتين فآخر القائمة */

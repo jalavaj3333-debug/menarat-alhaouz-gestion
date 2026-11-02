@@ -320,42 +320,62 @@ iframe[name="netlify-badge"],
     opacity: 0 !important;
 }
 @media (max-width: 768px) {
-    /* نخليو القائمة الجانبية تغطي الشاشة كاملة */
+    /* --- إعدادات القائمة الجانبية (اللي درناها قبيلة) --- */
     .sidebar {
-        position: fixed;
-        top: 0;
-        right: -100%; /* تكون مخفية على اليمين */
-        width: 250px;
-        height: 100vh;
-        z-index: 9999;
-        transition: right 0.3s ease;
-        background: var(--sidebar-bg);
-        overflow-y: auto;
+        position: fixed !important;
+        top: 0 !important;
+        right: -100% !important;
+        width: 250px !important;
+        height: 100vh !important;
+        z-index: 9999 !important;
+        transition: right 0.3s ease !important;
+        background: var(--sidebar-bg) !important;
+        overflow-y: auto !important;
     }
-
-    /* ملي تكون القائمة محلولة، ترجع للشاشة */
     .sidebar.active {
-        right: 0;
+        right: 0 !important;
     }
-
-    /* نخليو المحتوى الرئيسي ياخد الشاشة كاملة */
     .main-content {
-        margin-right: 0 !important; /* حيدنا الهامش */
-        width: 100% !important; /* العرض كامل */
-        padding: 10px;
+        margin-right: 0 !important;
+        width: 100% !important;
+        padding: 10px !important;
     }
-
-    /* نخليو زر القائمة (☰) يبان فوق كلشي */
     .menu-toggle {
         display: flex !important;
-        z-index: 10000;
-        position: fixed;
-        top: 15px;
-        left: 15px;
+        z-index: 10000 !important;
+        position: fixed !important;
+        top: 15px !important;
+        left: 15px !important; /* حطيناها على اليسار باش ما تغطيش على البحث */
     }
-
-    /* نخليو الأزرار ديال Quitter و Changer Mot de Passe ثابتين فآخر القائمة */
     .sidebar-footer {
         padding-bottom: 20px !important;
+    }
+
+    /* --- إعدادات الـ Top Bar (باش ما يتقطعش) --- */
+    .top-bar {
+        flex-direction: column !important; /* نخليو العناصر وحدة تحت وحدة */
+        align-items: flex-start !important;
+        gap: 10px !important;
+        padding-top: 50px !important; /* نخليو مساحة لزر القائمة (☰) */
+    }
+
+    .top-bar h1 {
+        font-size: 1.2rem !important; /* نصغرو العنوان */
+        width: 100%;
+        text-align: center;
+    }
+
+    /* نرتبو خانة البحث والأزرار */
+    .top-bar > div {
+        width: 100%;
+        display: flex !important;
+        flex-wrap: wrap !important; /* إلا ما كفاوش، يهبطو لسطر جديد */
+        justify-content: space-between !important;
+        align-items: center !important;
+    }
+
+    #globalSearch {
+        width: 100% !important; /* البحث ياخد العرض كامل */
+        margin-bottom: 10px;
     }
 }

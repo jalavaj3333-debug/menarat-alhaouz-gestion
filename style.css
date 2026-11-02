@@ -319,3 +319,43 @@ iframe[name="netlify-badge"],
     visibility: hidden !important;
     opacity: 0 !important;
 }
+/* تعديلات خاصة بالتيليفون */
+@media (max-width: 768px) {
+    /* نخليو القائمة الجانبية تغطي الشاشة كاملة */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        right: -100%; /* تكون مخفية على اليمين */
+        width: 250px;
+        height: 100vh;
+        z-index: 9999;
+        transition: right 0.3s ease;
+        background: var(--sidebar-bg);
+        overflow-y: auto; /* باش تقدر تهبط فيها إلا كانت طويلة */
+    }
+
+    /* ملي تكون القائمة محلولة، ترجع للشاشة */
+    .sidebar.active {
+        right: 0;
+    }
+
+    /* نخليو المحتوى الرئيسي ياخد الشاشة كاملة */
+    .main-content {
+        margin-right: 0 !important;
+        padding: 10px;
+    }
+
+    /* نخليو زر القائمة (☰) يبان فوق كلشي */
+    .menu-toggle {
+        display: flex !important;
+        z-index: 10000;
+        position: fixed;
+        top: 15px;
+        left: 15px; /* ولا right حسب التصميم */
+    }
+
+    /* نخليو الأزرار ديال Quitter و Changer Mot de Passe ثابتين فآخر القائمة */
+    .sidebar-footer {
+        padding-bottom: 20px !important;
+    }
+}

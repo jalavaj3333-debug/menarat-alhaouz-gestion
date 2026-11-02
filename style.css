@@ -378,4 +378,15 @@ iframe[name="netlify-badge"],
         width: 100% !important; /* البحث ياخد العرض كامل */
         margin-bottom: 10px;
     }
+        /* نزيدو مساحة فوق باش العنوان ما يتقطعش */
+    .main-content {
+        padding-top: 60px !important; 
+    }
+    
+    /* نصلحو بلاصة العنوان */
+    #pageTitle {
+        margin-top: 10px !important;
+        font-size: 1.3rem !important;
+        text-align: center !important;
+    }
 }

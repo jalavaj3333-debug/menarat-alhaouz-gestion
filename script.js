@@ -795,58 +795,141 @@ function toggleTypeOperation() {
 }
 function validerFacture(e) {
     e.preventDefault();
-    if (state.panier.length === 0) { showToast('⚠️ السلة خاوية!', '#f59e0b'); return; }
-    const type = document.getElementById('opType').value; const date = document.getElementById('opDate').value; const mois = document.getElementById('opMois').value;
-    let employe = '', zone = '', paiement = '-';
-    if (type === 'vente') { 
-        employe = (userRole === 'employe') ? currentUser : document.getElementById('opEmploye').value; 
-        zone = document.getElementById('opZone').value; paiement = document.getElementById('opPaiement').value; 
-        if (!employe || !zone) { showToast('⚠️ اختار الموظف والمنطقة', '#f59e0b'); return; } 
-    } else { 
-        employe = document.getElementById('opFournisseur').value; zone = 'MAGASIN'; if (!employe) { showToast('⚠️ اختار المورد', '#f59e0b'); return; } 
+
+    if (!state.panier.length) {
+        showToast('⚠️ السلة خاوية!', '#f59e0b');
+        return;
     }
+
+    const type = document.getElementById('opType')?.value;
+    const date = document.getElementById('opDate')?.value;
+    const mois = document.getElementById('opMois')?.value;
+
+    if (!['vente', 'achat'].includes(type) || !date) {
+        showToast('⚠️ اختار نوع العملية والتاريخ', '#f59e0b');
+        return;
+    }
+
+    let employe = '';
+    let zone = '';
+    let paiement = '-';
+
+    if (type === 'vente') {
+        employe = userRole === 'employe'
+            ? currentUser
+            : document.getElementById('opEmploye')?.value;
+        zone = document.getElementById('opZone')?.value;
+        paiement = document.getElementById('opPaiement')?.value || '-';
+
+        if (!employe || !zone) {
+            showToast('⚠️ اختار الموظف والمنطقة', '#f59e0b');
+            return;
+        }
+    } else {
+        employe = document.getElementById('opFournisseur')?.value;
+        zone = 'MAGASIN';
+        if (!employe) {
+            showToast('⚠️ اختار المورد', '#f59e0b');
+            return;
+        }
+    }
+
+    // تحقق من جميع أسطر الفاتورة قبل إضافة أي عملية، حتى لا نحفظ فاتورة جزئية.
+    const quantitiesByProduct = new Map();
+    for (const line of state.panier) {
+        const quantity = Number(line.qte);
+        const price = Number(line.prix);
+        const product = state.produits.find(p => p.nom === line.produit);
+
+        if (!product || !Number.isFinite(quantity) || quantity <= 0 ||
+            !Number.isFinite(price) || price <= 0) {
+            showToast('⚠️ كاين سطر غير صالح فالفاتورة. راجع المنتج والكمية والثمن.', '#f59e0b');
+            return;
+        }
+
+        quantitiesByProduct.set(
+            line.produit,
+            (quantitiesByProduct.get(line.produit) || 0) + quantity
+        );
+    }
+
+    if (type === 'vente') {
+        for (const [productName, requestedQuantity] of quantitiesByProduct) {
+            const product = state.produits.find(p => p.nom === productName);
+            const purchased = state.operations
+                .filter(o => o.type === 'achat' && o.produit === productName)
+                .reduce((sum, o) => sum + Number(o.quantite || 0), 0);
+            const sold = state.operations
+                .filter(o => o.type === 'vente' && o.produit === productName)
+                .reduce((sum, o) => sum + Number(o.quantite || 0), 0);
+            const available = Number(product.stockInitial || 0) + purchased - sold;
+
+            if (requestedQuantity > available) {
+                showToast(
+                    `❌ المخزون ديال ${productName} ما كافيش! المتوفر: ${available}`,
+                    '#ef4444'
+                );
+                return;
+            }
+        }
+    }
+
     const factureId = 'FAC-' + Date.now();
-    const produitsAlerte = []; // هنا غادي نجمعو المنتجات اللي قلو فالمخزون
+    const now = Date.now();
 
-    state.panier.forEach(l => {
-        const prod = state.produits.find(p => p.nom === l.produit);
-        
-        // --- التحقق من المخزون (غير إلا كانت العملية بيع) ---
-        if (type === 'vente' && prod) {
-            // كنحسبو المخزون الحالي قبل البيع
-            const e = state.operations.filter(o => o.type === 'achat' && o.produit === prod.nom).reduce((s, o) => s + parseFloat(o.quantite), 0);
-            const s = state.operations.filter(o => o.type === 'vente' && o.produit === prod.nom).reduce((s, o) => s + parseFloat(o.quantite), 0);
-            const stockActuel = (prod.stockInitial || 0) + e - s;
-
-            // إلا كان المخزون الحالي ناقص من الكمية المطلوبة
-            if (stockActuel < l.qte) {
-                showToast(`❌ المخزون ديال ${l.produit} ما كافيش! (المتوفر: ${stockActuel})`, '#ef4444');
-                return; // كنوقفو العملية كاملة
-            }
-        }
-
-        state.operations.push({ id: 'op_' + Date.now() + Math.random(), factureId, type, date, mois, employe, fournisseur: (type === 'achat' ? employe : '-'), zone, produit: l.produit, unite: prod ? prod.unite : '', quantite: l.qte, prix: l.prix, total: l.total, paiement });
-
-        // --- إشعار المخزون المنخفض ---
-        if (type === 'vente' && prod) {
-            const e = state.operations.filter(o => o.type === 'achat' && o.produit === prod.nom).reduce((s, o) => s + parseFloat(o.quantite), 0);
-            const s = state.operations.filter(o => o.type === 'vente' && o.produit === prod.nom).reduce((s, o) => s + parseFloat(o.quantite), 0);
-            const stockApres = (prod.stockInitial || 0) + e - s;
-
-            if (stockApres < 5) {
-                produitsAlerte.push(`${prod.nom} (باقي ${stockApres})`);
-            }
-        }
+    // جميع الشروط دازت؛ دابا نضيفو أسطر الفاتورة دفعة وحدة.
+    const newOperations = state.panier.map((line, index) => {
+        const product = state.produits.find(p => p.nom === line.produit);
+        return {
+            id: 'op_' + now + '_' + index,
+            factureId,
+            type,
+            date,
+            mois,
+            employe,
+            fournisseur: type === 'achat' ? employe : '-',
+            zone,
+            produit: line.produit,
+            unite: product.unite || '',
+            quantite: Number(line.qte),
+            prix: Number(line.prix),
+            total: Number(line.qte) * Number(line.prix),
+            paiement
+        };
     });
 
-    // إلا كانو منتجات قلو، كنعطي إشعار بيهم
-    if (produitsAlerte.length > 0) {
-        showToast(`⚠️ تنبيه المخزون: ${produitsAlerte.join(', ')}`, '#f59e0b');
+    state.operations.push(...newOperations);
+
+    if (type === 'vente') {
+        const lowStock = [];
+        for (const [productName, soldQuantity] of quantitiesByProduct) {
+            const product = state.produits.find(p => p.nom === productName);
+            const purchased = state.operations
+                .filter(o => o.type === 'achat' && o.produit === productName)
+                .reduce((sum, o) => sum + Number(o.quantite || 0), 0);
+            const sold = state.operations
+                .filter(o => o.type === 'vente' && o.produit === productName)
+                .reduce((sum, o) => sum + Number(o.quantite || 0), 0);
+            const remaining = Number(product.stockInitial || 0) + purchased - sold;
+            if (remaining < 5) lowStock.push(`${productName} (باقي ${remaining})`);
+        }
+
+        if (lowStock.length) {
+            showToast(`⚠️ تنبيه المخزون: ${lowStock.join('، ')}`, '#f59e0b');
+        }
     }
 
-    saveState(); showToast('✅ تم حفظ الفاتورة!'); state.panier = []; renderPanier(); renderAll();
-    document.getElementById('formOperation').reset(); document.getElementById('opDate').valueAsDate = new Date(); toggleTypeOperation();
-        autoBackup(); // نسخة احتياطية أوتوماتيكية بعد كل عملية
+    saveState();
+    showToast('✅ تم حفظ الفاتورة!');
+    state.panier = [];
+    renderPanier();
+    renderAll();
+
+    document.getElementById('formOperation')?.reset();
+    const dateInput = document.getElementById('opDate');
+    if (dateInput) dateInput.valueAsDate = new Date();
+    toggleTypeOperation();
+    autoBackup();
 }
 
 // ============== OPERATIONS ==============

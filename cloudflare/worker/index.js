@@ -142,7 +142,8 @@ async function handle(request, env) {
       env.DB.prepare("SELECT id, name AS nom, phone AS tel FROM suppliers WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT i.*, l.id AS line_id, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id ORDER BY i.operation_date DESC").all()
     ]);
-    const operations = (invoices.results || []).filter(row => row.produit).map(row => ({
+    const visibleInvoices = user.role === "admin" ? (invoices.results || []) : (invoices.results || []).filter(row => row.employee_name === user.display_name);
+    const operations = visibleInvoices.filter(row => row.produit).map(row => ({
       id: row.line_id, factureId: row.id, date: row.operation_date, type: row.type,
       employe: row.employee_name, fournisseur: row.supplier_name, zone: row.zone_name,
       paiement: row.payment_status, produit: row.produit, unite: row.unite,
@@ -273,6 +274,14 @@ async function handle(request, env) {
       return json({ ok: true, id: newId }, 201);
     }
     if (request.method === "DELETE" && id) {
+      if (resource === "employees") {
+        const employee = await env.DB.prepare("SELECT user_id FROM employees WHERE id=?").bind(id).first();
+        const results = await env.DB.batch([
+          env.DB.prepare("UPDATE employees SET active=0 WHERE id=?").bind(id),
+          ...(employee?.user_id ? [env.DB.prepare("UPDATE users SET active=0, updated_at=datetime('now') WHERE id=?").bind(employee.user_id)] : [])
+        ]);
+        return json({ ok: true, changes: results.reduce((sum,x)=>sum+Number(x.meta?.changes||0),0) });
+      }
       const result = await env.DB.prepare(`UPDATE ${cfg.table} SET active=0 WHERE id=?`).bind(id).run();
       return json({ ok: true, changes: result.meta?.changes || 0 });
     }

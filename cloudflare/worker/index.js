@@ -250,7 +250,21 @@ async function handle(request, env) {
         await env.DB.prepare("INSERT INTO products(id,name,unit,price,opening_stock,current_stock,supplier_name) VALUES(?,?,?,?,?,?,?)")
           .bind(newId,name,clean(data.unit,20),price,stock,stock,clean(data.supplier_name,120)).run();
       } else if (resource === "employees") {
-        await env.DB.prepare("INSERT INTO employees(id,name) VALUES(?,?)").bind(newId,name).run();
+        const email = clean(data.email, 190).toLowerCase();
+        const password = typeof data.password === "string" ? data.password : "";
+        if (!validEmail(email) || password.length < 12 || password.length > 200) {
+          return json({ error: "Indiquez un email valide et un mot de passe d'au moins 12 caractères." }, 400);
+        }
+        const existing = await env.DB.prepare("SELECT id FROM users WHERE email=?").bind(email).first();
+        if (existing) return json({ error: "Cet email est déjà utilisé." }, 409);
+        const salt = randomHex(16);
+        const hash = await passwordHash(password, salt);
+        const userId = crypto.randomUUID();
+        await env.DB.batch([
+          env.DB.prepare("INSERT INTO users(id,email,display_name,role,password_hash,password_salt,password_iterations) VALUES(?,?,?,?,?,?,?)")
+            .bind(userId,email,name,"employe",hash,salt,ITERATIONS),
+          env.DB.prepare("INSERT INTO employees(id,name,user_id) VALUES(?,?,?)").bind(newId,name,userId)
+        ]);
       } else if (resource === "zones") {
         await env.DB.prepare("INSERT INTO zones(id,name) VALUES(?,?)").bind(newId,name).run();
       } else {

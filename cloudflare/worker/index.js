@@ -149,7 +149,7 @@ async function handle(request, env) {
     ]);
     const visibleInvoices = user.role === "admin" ? (invoices.results || []) : (invoices.results || []).filter(row => row.employee_name === user.display_name);
     const operations = visibleInvoices.filter(row => row.produit).map(row => ({
-      id: row.line_id, factureId: row.id, date: row.operation_date, type: row.type,
+      id: row.line_id, factureId: row.id, invoiceRef: row.invoice_ref, date: row.operation_date, type: row.type,
       employe: row.employee_name, fournisseur: row.supplier_name, zone: row.zone_name,
       paiement: row.payment_status, produit: row.produit, unite: row.unite,
       quantite: row.quantite, prix: row.prix, total: row.total

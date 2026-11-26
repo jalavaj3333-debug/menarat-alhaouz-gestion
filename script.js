@@ -812,7 +812,7 @@ function exportStockInsightsCSV() {
         const purchases = state.operations.filter(op => op.type === 'achat' && op.produit === product.nom).reduce((sum, op) => sum + (Number(op.quantite) || 0), 0);
         const sales = state.operations.filter(op => op.type === 'vente' && op.produit === product.nom).reduce((sum, op) => sum + (Number(op.quantite) || 0), 0);
         const opening = Number(product.stockInitial) || 0;
-        const stock = opening + purchases - sales;
+        const stock = getCurrentProductStock(product);
         const price = Number(product.prix) || 0;
         const status = stock <= 0 ? 'Rupture' : stock <= 5 ? 'Stock faible' : 'Normal';
         rows.push([product.nom, product.fournisseur || '', product.unite || '', opening, purchases, sales, stock, price.toFixed(2), (Math.max(0, stock) * price).toFixed(2), status]);

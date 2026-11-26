@@ -364,6 +364,7 @@ async function changePassword() {
 
 // ============== EXPORT OPERATIONS CSV ==============
 function exportFullBackup() {
+    if (!requireAdminAccess('تصدير النسخة الاحتياطية')) return;
     if (state.operations.length === 0 && state.produits.length === 0) { showToast('⚠️ لا توجد بيانات', '#f59e0b'); return; }
     const backup = { version: '1.0', date: new Date().toISOString(), state: state };
     const dataStr = JSON.stringify(backup, null, 2);
@@ -375,6 +376,7 @@ function exportFullBackup() {
     showToast('✅ تم تصدير النسخة الاحتياطية!');
 }
 function importFullBackup(e) {
+    if (!requireAdminAccess('استيراد النسخة الاحتياطية')) return;
     const file = e.target.files[0]; if (!file) return;
     customConfirm('⚠️ سيتم استبدال كل البيانات. متأكد؟').then(confirmed => {
         if (!confirmed) { e.target.value = ''; return; }
@@ -395,6 +397,7 @@ function importFullBackup(e) {
     });
 }
 function exportOperationsCSV() {
+    if (!requireAdminAccess('تصدير العمليات')) return;
     if (state.operations.length === 0) { showToast('⚠️ لا توجد عمليات للتصدير', '#f59e0b'); return; }
     const headers = ['Date', 'Type', 'Employé', 'Fournisseur', 'Zone', 'Produit', 'Unité', 'Quantité', 'Prix', 'Total', 'Paiement'];
     const rows = state.operations.map(op => [ op.date || '', op.type === 'achat' ? 'Achat' : 'Vente', op.employe || '', op.fournisseur || '', op.zone || '', op.produit || '', op.unite || '', op.quantite || 0, op.prix || 0, op.total || 0, op.paiement || '' ]);
@@ -418,6 +421,7 @@ function exportOperationsCSV() {
 
 // ============== IMPORT EXCEL STOCK ==============
 function importExcel(e) {
+    if (!requireAdminAccess('استيراد Excel للمخزون')) return;
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -479,6 +483,7 @@ function importExcel(e) {
 
 // ============== IMPORT FACTURES EXCEL ==============
 function importExcelFactures(e) {
+    if (!requireAdminAccess('استيراد فواتير Excel')) return;
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -526,6 +531,7 @@ function importExcelFactures(e) {
 
 // ============== IMPORT EXCEL SMART ==============
 function importExcelSmart(e) {
+    if (!requireAdminAccess('الاستيراد الذكي Excel')) return;
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -622,6 +628,7 @@ function toggleTheme() {
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
 }
 function editYear() {
+    if (!requireAdminAccess('تغيير السنة')) return;
     const currentYear = document.getElementById('sidebarYear').textContent.replace('Gestion ', '');
     const newYear = prompt('أدخل السنة الدراسية (مثلاً: 2026-2027):', currentYear);
     if (newYear && newYear.trim() !== '') { 
@@ -987,8 +994,10 @@ function renderOperations() {
         </td>
     </tr>`).join('') : '<tr><td colspan="10" style="text-align:center; padding:20px;">لا توجد عمليات</td></tr>';
 }
-function deleteOperation(id) { customConfirm('⚠️ حذف هذه العملية؟').then(confirmed => { if (!confirmed) return; state.operations = state.operations.filter(op => op.id !== id); saveState(); renderAll(); }); }
+function deleteOperation(id) {
+    if (!requireAdminAccess('حذف عملية')) return; customConfirm('⚠️ حذف هذه العملية؟').then(confirmed => { if (!confirmed) return; state.operations = state.operations.filter(op => op.id !== id); saveState(); renderAll(); }); }
 function editOperation(id) {
+    if (!requireAdminAccess('تعديل عملية')) return;
     const op = state.operations.find(o => o.id === id);
     if (!op) return;
     const nouvelleQte = prompt(`تعديل الكمية ديال: ${op.produit}\n\nالكمية الحالية: ${op.quantite}\n\nأدخل الكمية الجديدة:`, op.quantite);
@@ -1163,7 +1172,8 @@ function renderProduits() {
     updateSelect('factProduit', state.produits.map(p => p.nom)); 
     updateSelect('newProduitFournisseur', state.fournisseurs.map(f => f.nom));
 }
-function ajouterProduit(e) { 
+function ajouterProduit(e) {
+    if (!requireAdminAccess('إضافة منتج')) return; 
     e.preventDefault(); 
     const nom = document.getElementById('newProduitNom').value.trim(); 
     const unite = document.getElementById('newProduitUnite').value.trim(); 
@@ -1175,8 +1185,10 @@ function ajouterProduit(e) {
     saveState(); renderAll(); e.target.reset(); 
     showToast('✅ تم إضافة المنتج!');
 }
-function deleteProduit(index) { if (!confirm('حذف؟')) return; state.produits.splice(index, 1); saveState(); renderAll(); }
-function openEditProduit(index) { 
+function deleteProduit(index) {
+    if (!requireAdminAccess('حذف منتج')) return; if (!confirm('حذف؟')) return; state.produits.splice(index, 1); saveState(); renderAll(); }
+function openEditProduit(index) {
+    if (!requireAdminAccess('تعديل منتج')) return; 
     const p = state.produits[index]; 
     document.getElementById('editProduitIndex').value = index; 
     document.getElementById('editProduitNom').value = p.nom; 
@@ -1352,6 +1364,7 @@ function renderBilan() {
 
 // ============== EXPORT PDF GLOBAL ==============
 function exportPDFGlobal() {
+    if (!requireAdminAccess('تصدير التقرير العام')) return;
     if (typeof window.jspdf === 'undefined') {
         showToast('❌ مكتبة PDF ماشي محملة', '#ef4444');
         return;
@@ -1430,7 +1443,8 @@ function exportPDFGlobal() {
 
 // ============== AUTRES ==============
 function renderCredits() { const tbody = document.getElementById('tbodyCredits'); if (!tbody) return; const credits = state.operations.filter(o => o.type === 'vente' && o.paiement === 'Crédit').sort((a,b)=>new Date(b.date)-new Date(a.date)); tbody.innerHTML = credits.length ? credits.map((op) => `<tr><td>${op.date}</td><td>${op.employe}</td><td>${op.produit}</td><td>${op.quantite}</td><td><strong style="color:#ef4444">${parseFloat(op.total).toFixed(2)} DH</strong></td><td><button class="btn-action btn-primary" onclick="payerCredit('${op.id}')" style="padding:4px 8px; font-size:12px;">💸 Payer</button></td></tr>`).join('') : '<tr><td colspan="6" style="text-align:center; padding:20px;">لا توجد ديون</td></tr>'; }
-function payerCredit(id) { if (!confirm('هل تم استلام المبلغ؟')) return; const op = state.operations.find(o => o.id === id); if (op) { op.paiement = 'Payé'; saveState(); renderAll(); } }
+function payerCredit(id) {
+    if (!requireAdminAccess('تسوية دين')) return; if (!confirm('هل تم استلام المبلغ؟')) return; const op = state.operations.find(o => o.id === id); if (op) { op.paiement = 'Payé'; saveState(); renderAll(); } }
 
 function renderEmployes() { 
     const t = document.getElementById('tbodyEmployes'); 
@@ -1446,7 +1460,8 @@ function renderEmployes() {
     }).join('') || '<tr><td colspan="5" style="text-align:center; padding:20px;">لا توجد نتائج</td></tr>'; 
     updateSelect('opEmploye', state.employes); 
 }
-function ajouterEmploye(e) { 
+function ajouterEmploye(e) {
+    if (!requireAdminAccess('إضافة موظف')) return; 
     if (e) e.preventDefault(); 
     const input = document.getElementById('newEmployeNom');
     if (!input) { showToast('❌ الحقل ماشي موجود', '#ef4444'); return; }
@@ -1460,6 +1475,7 @@ function ajouterEmploye(e) {
 // --- إدارة حسابات Firebase ---
 
 function openAddUserFirebase() {
+    if (!requireAdminAccess('إنشاء حساب موظف')) return;
     const email = prompt("أدخل الإيميل ديال الموظف الجديد (مثلاً: hicham@menarat.ma):");
     if (!email) return;
     
@@ -1543,7 +1559,8 @@ async function addUserToFirebase(email, password) {
     }
 }
 
-function deleteEmploye(i) { customConfirm('حذف؟').then(confirmed => { if (!confirmed) return; state.employes.splice(i, 1); saveState(); renderAll(); }); }
+function deleteEmploye(i) {
+    if (!requireAdminAccess('حذف موظف')) return; customConfirm('حذف؟').then(confirmed => { if (!confirmed) return; state.employes.splice(i, 1); saveState(); renderAll(); }); }
 
 function renderZones() { 
     const t = document.getElementById('tbodyZones'); 
@@ -1559,7 +1576,8 @@ function renderZones() {
     }).join('') || '<tr><td colspan="5" style="text-align:center; padding:20px;">لا توجد نتائج</td></tr>'; 
     updateSelect('opZone', state.zones); 
 }
-function ajouterZone(e) { 
+function ajouterZone(e) {
+    if (!requireAdminAccess('إضافة منطقة')) return; 
     e.preventDefault(); 
     const n = document.getElementById('newZoneNom').value.trim(); 
     if (!n) return; 
@@ -1567,7 +1585,8 @@ function ajouterZone(e) {
     saveState(); renderAll(); e.target.reset(); 
     showToast('✅ تم إضافة المنطقة!');
 }
-function deleteZone(i) { customConfirm('حذف؟').then(confirmed => { if (!confirmed) return; state.zones.splice(i, 1); saveState(); renderAll(); }); }
+function deleteZone(i) {
+    if (!requireAdminAccess('حذف منطقة')) return; customConfirm('حذف؟').then(confirmed => { if (!confirmed) return; state.zones.splice(i, 1); saveState(); renderAll(); }); }
 
 function renderFournisseurs() { 
     const t = document.getElementById('tbodyFournisseurs'); 
@@ -1584,7 +1603,8 @@ function renderFournisseurs() {
     updateSelect('opFournisseur', state.fournisseurs.map(f => f.nom)); 
     updateSelect('newProduitFournisseur', state.fournisseurs.map(f => f.nom)); 
 }
-function ajouterFournisseur(e) { 
+function ajouterFournisseur(e) {
+    if (!requireAdminAccess('إضافة مورد')) return; 
     e.preventDefault(); 
     const n = document.getElementById('newFournisseurNom').value.trim(); 
     const t = document.getElementById('newFournisseurTel').value.trim(); 
@@ -1593,7 +1613,8 @@ function ajouterFournisseur(e) {
     saveState(); renderAll(); e.target.reset(); 
     showToast('✅ تم إضافة المورد!');
 }
-function deleteFournisseur(i) { customConfirm('حذف؟').then(confirmed => { if (!confirmed) return; state.fournisseurs.splice(i, 1); saveState(); renderAll(); }); }
+function deleteFournisseur(i) {
+    if (!requireAdminAccess('حذف مورد')) return; customConfirm('حذف؟').then(confirmed => { if (!confirmed) return; state.fournisseurs.splice(i, 1); saveState(); renderAll(); }); }
 
 function updateSelect(id, items) { 
     const s = document.getElementById(id); 
@@ -1671,6 +1692,7 @@ function autoFillPrix() {
     }
 }
 function exportRapportMensuelPDF() {
+    if (!requireAdminAccess('تصدير التقرير الشهري')) return;
     if (typeof window.jspdf === 'undefined') {
         showToast('❌ مكتبة PDF ماشي محملة', '#ef4444');
         return;

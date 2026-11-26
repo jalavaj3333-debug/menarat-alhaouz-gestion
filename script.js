@@ -411,7 +411,7 @@ function exportOperationsCSV() {
     const rows = state.operations.map(op => [op.date || '', op.type === 'achat' ? 'Achat' : 'Vente', op.employe || '', op.fournisseur || '', op.zone || '', op.produit || '', op.unite || '', op.quantite || 0, op.prix || 0, op.total || 0, op.paiement || '']);
     const safeCell = cell => {
         let value = String(cell ?? '');
-        if (typeof cell === 'string' && /^[=+@\\-\\t\\r]/.test(value)) value = "'" + value;
+        if (typeof cell === 'string' && ['=', '+', '@', '-', '\t', '\r'].includes(value.charAt(0))) value = "'" + value;
         return '"' + value.replace(/"/g, '""') + '"';
     };
     const csvContent = [headers, ...rows].map(row => row.map(safeCell).join(';')).join('\r\n');
@@ -806,7 +806,7 @@ function exportStockInsightsCSV() {
     const rows = [['Produit', 'Fournisseur', 'Unite', 'Stock initial', 'Achats', 'Ventes', 'Stock actuel', 'Prix unitaire (DH)', 'Valeur stock (DH)', 'Statut']];
     const safeCell = value => {
         let text = String(value ?? '');
-        if (typeof value === 'string' && /^[=+@\\-\\t\\r]/.test(text)) text = "'" + text;
+        if (typeof value === 'string' && ['=', '+', '@', '-', '\t', '\r'].includes(text.charAt(0))) text = "'" + text;
         return '"' + text.replace(/"/g, '""') + '"';
     };
     state.produits.forEach(product => {

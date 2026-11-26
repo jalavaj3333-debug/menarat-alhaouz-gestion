@@ -776,10 +776,14 @@ body::before {
 }
 
 
-/* FIX: show the logo watermark on the login overlay itself */
+
+
+/* FULL-SCREEN BRAND BACKGROUND */
 .login-container {
+    position: relative;
     isolation: isolate;
     overflow: hidden;
+    background-color: #0b1220;
 }
 .login-container::before {
     content: "";
@@ -787,19 +791,23 @@ body::before {
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background-image: url("./logo.png");
+    background-image:
+        linear-gradient(rgba(5, 12, 25, .58), rgba(5, 12, 25, .58)),
+        url("./logo.png");
     background-repeat: no-repeat;
-    background-position: center center;
-    background-size: min(48vw, 460px) auto;
-    opacity: 0.16;
+    background-position: center;
+    background-size: cover;
+    opacity: 1;
 }
 .login-box {
     position: relative;
     z-index: 1;
+    background: rgba(255, 255, 255, .94);
+    backdrop-filter: blur(8px);
 }
 @media (max-width: 600px) {
     .login-container::before {
-        background-size: min(78vw, 320px) auto;
-        opacity: 0.13;
+        background-position: center;
+        background-size: cover;
     }
 }

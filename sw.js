@@ -1,4 +1,4 @@
-const CACHE_NAME = 'menarat-v1';
+const CACHE_NAME = 'menarat-v2';
 const urlsToCache = [
   './',
   './index.html',

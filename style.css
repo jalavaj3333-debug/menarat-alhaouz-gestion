@@ -795,7 +795,7 @@ body::before {
     overflow: hidden;
     background-color: #0b1220;
 }
-#loginScreen#loginScreen.login-container::before {
+#loginScreen.login-container::before {
     content: "";
     position: absolute;
     inset: 0;

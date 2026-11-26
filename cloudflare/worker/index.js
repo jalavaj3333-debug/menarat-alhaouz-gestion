@@ -184,7 +184,7 @@ async function handle(request, env) {
       env.DB.prepare("SELECT id, name AS nom, phone AS tel FROM suppliers WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT i.*, l.id AS line_id, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id ORDER BY i.operation_date DESC").all()
     ]);
-    const visibleInvoices = user.role === "admin" ? (invoices.results || []) : (invoices.results || []).filter(row => row.employee_name === user.display_name);
+    const visibleInvoices = user.role === "admin" ? (invoices.results || []) : (invoices.results || []).filter(row => row.employee_user_id === user.id);
     const operations = visibleInvoices.filter(row => row.produit).map(row => ({
       id: row.line_id, factureId: row.id, invoiceRef: row.invoice_ref, date: row.operation_date, type: row.type,
       employe: row.employee_name, fournisseur: row.supplier_name, zone: row.zone_name,
@@ -215,9 +215,11 @@ async function handle(request, env) {
     const employeeName = type === "vente"
       ? (user.role === "employe" ? user.display_name : clean(data.employeeName || user.display_name, 120))
       : supplier;
-    if (type === "vente" && user.role === "admin" && data.employeeName) {
-      const employee = await env.DB.prepare("SELECT name FROM employees WHERE name=? AND active=1").bind(employeeName).first();
-      if (!employee && employeeName !== user.display_name) return json({ error: "Unknown employee" }, 400);
+    let employeeUserId = type === "vente" ? user.id : null;
+    if (type === "vente" && user.role === "admin" && data.employeeName && employeeName !== user.display_name) {
+      const employee = await env.DB.prepare("SELECT name,user_id FROM employees WHERE name=? AND active=1").bind(employeeName).first();
+      if (!employee || !employee.user_id) return json({ error: "Unknown employee or employee account is not linked" }, 400);
+      employeeUserId = employee.user_id;
     }
     const aggregated = new Map();
     for (const line of data.lines) {
@@ -249,9 +251,9 @@ async function handle(request, env) {
     const stockCondition = type === "vente"
       ? ` AND NOT EXISTS (SELECT 1 FROM products WHERE ${shortageParts.join(" OR ")})`
       : "";
-    statements.push(env.DB.prepare(`INSERT INTO invoices(id,invoice_ref,type,operation_date,month_key,employee_name,supplier_name,zone_name,payment_status,created_at_ms)
-      SELECT ?,?,?,?,?,?,?,?,?,? WHERE 1=1${stockCondition}`).bind(
-        invoiceId, invoiceRef, type, date, date.slice(0,7), employeeName, supplier, zone, payment, Date.now(), ...shortageArgs
+    statements.push(env.DB.prepare(`INSERT INTO invoices(id,invoice_ref,type,operation_date,month_key,employee_name,employee_user_id,supplier_name,zone_name,payment_status,created_at_ms)
+      undefined`).bind(
+        invoiceId, invoiceRef, type, date, date.slice(0,7), employeeName, employeeUserId, supplier, zone, payment, Date.now(), ...shortageArgs
       ));
     for (const [name, qty] of aggregated) {
       statements.push(type === "vente"

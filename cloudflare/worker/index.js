@@ -43,7 +43,12 @@ async function passwordHash(password, salt, iterations = ITERATIONS) {
   return [...new Uint8Array(bits)].map(x => x.toString(16).padStart(2, "0")).join("");
 }
 async function body(request) {
-  const value = await request.json();
+  const declaredSize = Number(request.headers.get("Content-Length") || 0);
+  if (declaredSize > 65536) throw new Error("Request body too large");
+  const raw = await request.text();
+  if (raw.length > 65536) throw new Error("Request body too large");
+  let value;
+  try { value = JSON.parse(raw); } catch { throw new Error("Invalid JSON body"); }
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid JSON body");
   return value;
 }
@@ -60,6 +65,33 @@ function validDate(value) {
 }
 function sameOrigin(request, env) {
   return request.headers.get("Origin") === env.APP_ORIGIN && !!env.APP_ORIGIN;
+}
+async function loginThrottleKey(request, email) {
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  return sha256(ip + ":" + email);
+}
+async function isLoginBlocked(request, email, env) {
+  const key = await loginThrottleKey(request, email);
+  const row = await env.DB.prepare("SELECT blocked_until FROM login_attempts WHERE identifier_hash=?").bind(key).first();
+  return Number(row?.blocked_until || 0) > Date.now();
+}
+async function recordLoginFailure(request, email, env) {
+  const key = await loginThrottleKey(request, email);
+  const now = Date.now();
+  const row = await env.DB.prepare("SELECT attempts,window_started_at FROM login_attempts WHERE identifier_hash=?").bind(key).first();
+  if (!row || now - Number(row.window_started_at) > 15 * 60 * 1000) {
+    await env.DB.prepare("INSERT INTO login_attempts(identifier_hash,attempts,window_started_at,blocked_until) VALUES(?,1,?,0) ON CONFLICT(identifier_hash) DO UPDATE SET attempts=1,window_started_at=excluded.window_started_at,blocked_until=0")
+      .bind(key, now).run();
+    return;
+  }
+  const attempts = Number(row.attempts || 0) + 1;
+  const blockedUntil = attempts >= 8 ? now + 15 * 60 * 1000 : 0;
+  await env.DB.prepare("UPDATE login_attempts SET attempts=?,blocked_until=? WHERE identifier_hash=?")
+    .bind(attempts, blockedUntil, key).run();
+}
+async function clearLoginFailures(request, email, env) {
+  const key = await loginThrottleKey(request, email);
+  await env.DB.prepare("DELETE FROM login_attempts WHERE identifier_hash=?").bind(key).run();
 }
 async function getUser(request, env) {
   const raw = (request.headers.get("Cookie") || "").split(";").map(x => x.trim()).find(x => x.startsWith(COOKIE + "="));
@@ -94,8 +126,6 @@ async function handle(request, env) {
     if (!env.BOOTSTRAP_SECRET) return json({ error: "Bootstrap is not configured" }, 503);
     const data = await body(request);
     if (!data.secret || data.secret !== env.BOOTSTRAP_SECRET) return json({ error: "Forbidden" }, 403);
-    const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM users").first();
-    if (Number(count?.n || 0) !== 0) return json({ error: "Initial setup already completed" }, 409);
     const email = clean(data.email, 190).toLowerCase();
     const name = clean(data.displayName || "ADMIN", 100);
     const password = typeof data.password === "string" ? data.password : "";
@@ -104,8 +134,11 @@ async function handle(request, env) {
     }
     const salt = randomHex(16);
     const hash = await passwordHash(password, salt);
-    await env.DB.prepare("INSERT INTO users(id,email,display_name,role,password_hash,password_salt,password_iterations) VALUES(?,?,?,?,?,?,?)")
-      .bind(crypto.randomUUID(), email, name, "admin", hash, salt, ITERATIONS).run();
+    const created = await env.DB.prepare(`
+      INSERT INTO users(id,email,display_name,role,password_hash,password_salt,password_iterations)
+      SELECT ?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM users)
+    `).bind(crypto.randomUUID(), email, name, "admin", hash, salt, ITERATIONS).run();
+    if (Number(created.meta?.changes || 0) !== 1) return json({ error: "Initial setup already completed" }, 409);
     return json({ ok: true, message: "Initial administrator created. Remove/rotate bootstrap secret now." }, 201);
   }
 
@@ -115,10 +148,14 @@ async function handle(request, env) {
     const email = clean(data.email, 190).toLowerCase();
     const password = typeof data.password === "string" ? data.password : "";
     if (!validEmail(email) || !password || password.length > 200) return json({ error: "Invalid credentials" }, 401);
+    if (await isLoginBlocked(request, email, env)) return json({ error: "Too many attempts. Try again in 15 minutes." }, 429);
     const user = await env.DB.prepare("SELECT * FROM users WHERE email=? AND active=1").bind(email).first();
-    if (!user) return json({ error: "Invalid credentials" }, 401);
-    const candidate = await passwordHash(password, user.password_salt, Number(user.password_iterations));
-    if (candidate !== user.password_hash) return json({ error: "Invalid credentials" }, 401);
+    const candidate = await passwordHash(password, user?.password_salt || "menarat-invalid-user-salt", Number(user?.password_iterations || ITERATIONS));
+    if (!user || candidate !== user.password_hash) {
+      await recordLoginFailure(request, email, env);
+      return json({ error: "Invalid credentials" }, 401);
+    }
+    await clearLoginFailures(request, email, env);
     const token = await createSession(user.id, env);
     return json({ ok: true, user: { id: user.id, email: user.email, displayName: user.display_name, role: user.role } }, 200, {
       "set-cookie": cookie(token, SESSION_DAYS * 86400)
@@ -323,6 +360,8 @@ export default {
       for (const [key, value] of Object.entries(corsHeaders(request, env))) headers.set(key, value);
       return new Response(response.body, { status: response.status, headers });
     } catch (error) {
+      if (error?.message === "Invalid JSON body") return json({ error: "Invalid JSON body" }, 400);
+      if (error?.message === "Request body too large") return json({ error: "Request body too large" }, 413);
       console.error("Menarat API error:", error);
       return json({ error: "Internal server error" }, 500);
     }

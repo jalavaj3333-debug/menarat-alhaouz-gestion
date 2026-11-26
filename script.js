@@ -776,7 +776,8 @@ function renderAccueil() {
 }
 
 
-// ============== SMART STOCK INSIGHTS ==============\n
+// ============== SMART STOCK INSIGHTS ==============
+
 function getCurrentProductStock(product) {
     const opening = Number(product.stockInitial) || 0;
     const purchases = state.operations.filter(op => op.type === 'achat' && op.produit === product.nom).reduce((sum, op) => sum + (Number(op.quantite) || 0), 0);

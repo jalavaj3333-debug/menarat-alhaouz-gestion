@@ -832,5 +832,5 @@ body::before {
     color:#0f172a; font:inherit; font-weight:600; cursor:pointer;
 }
 .login-role-select:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.14); }
-#formAdmin, #formEmploye { width:100%; }
-#formAdmin input, #formEmploye input, #formAdmin button, #formEmploye button { box-sizing:border-box; width:100%; }
+#formAdmin, #loginFormEmploye { width:100%; }
+#formAdmin input, #loginFormEmploye input, #formAdmin button, #loginFormEmploye button { box-sizing:border-box; width:100%; }

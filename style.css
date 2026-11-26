@@ -778,6 +778,36 @@ body::before {
 
 
 
+/* CHANGE PASSWORD MODAL — isolated from the login screen */
+.change-password-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10001;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, .68);
+    direction: rtl;
+}
+.change-password-modal > .login-box {
+    position: relative;
+    z-index: 1;
+    width: min(400px, 100%);
+    max-width: 400px;
+    margin: auto;
+    background: var(--card-bg, #fff);
+}
+.change-password-modal input {
+    width: 100%;
+    min-height: 42px;
+}
+@media (max-width: 480px) {
+    .change-password-modal { padding: 14px; }
+    .change-password-modal > .login-box { padding: 1.25rem; }
+}
+
 /* FULL-SCREEN BRAND BACKGROUND — login screen only.
    Do not apply display:flex to the password modal: its inline display:none
    must remain effective until the user opens it after signing in. */

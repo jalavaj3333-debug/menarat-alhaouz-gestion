@@ -186,16 +186,17 @@ async function handle(request, env) {
     for (const line of data.lines) {
       const name = clean(line.product, 120), quantity = Number(line.quantity);
       if (!name || !Number.isFinite(quantity) || quantity <= 0 || quantity > 100000) return json({ error: "Invalid invoice line" }, 400);
-      aggregated.set(name, (aggregated.get(name) || 0) + quantity);
+      const key = name.toLocaleLowerCase("en");
+      aggregated.set(key, (aggregated.get(key) || 0) + quantity);
     }
     const names = [...aggregated.keys()];
     const marks = names.map(() => "?").join(",");
     const found = await env.DB.prepare(`SELECT name,unit,price,current_stock FROM products WHERE active=1 AND name IN (${marks})`).bind(...names).all();
-    const productMap = new Map((found.results || []).map(p => [p.name, p]));
+    const productMap = new Map((found.results || []).map(p => [p.name.toLocaleLowerCase("en"), p]));
     if (productMap.size !== names.length) return json({ error: "One or more products do not exist" }, 400);
     const lines = [];
     for (const line of data.lines) {
-      const name = clean(line.product, 120), product = productMap.get(name), quantity = Number(line.quantity);
+      const name = clean(line.product, 120), product = productMap.get(name.toLocaleLowerCase("en")), quantity = Number(line.quantity);
       const price = type === "vente" ? Number(product.price) : Number(line.price);
       if (!Number.isFinite(price) || price < 0) return json({ error: "Invalid unit price" }, 400);
       lines.push({ name, unit: product.unit || "", quantity, price, total: quantity * price });

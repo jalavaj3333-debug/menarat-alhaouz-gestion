@@ -1,0 +1,213 @@
+/**
+ * Menarat Al Haouz API — Cloudflare Worker + D1
+ * Deploy only to a staging Worker with a NEW D1 database.
+ * Required bindings: DB (D1), APP_ORIGIN (Text), BOOTSTRAP_SECRET (Secret).
+ * No Firebase data is read, changed, or deleted by this Worker.
+ */
+const COOKIE = "__Host-menarat_session";
+const SESSION_DAYS = 7;
+const ITERATIONS = 310000;
+
+function json(data, status = 200, headers = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers }
+  });
+}
+function corsHeaders(request, env) {
+  const origin = request.headers.get("Origin");
+  const allowed = env.APP_ORIGIN;
+  if (!origin || !allowed || origin !== allowed) return {};
+  return {
+    "access-control-allow-origin": allowed,
+    "access-control-allow-credentials": "true",
+    "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
+    "access-control-allow-headers": "Content-Type",
+    "vary": "Origin"
+  };
+}
+function cookie(value, maxAge) {
+  return `${COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
+}
+function randomHex(bytes = 32) {
+  const data = crypto.getRandomValues(new Uint8Array(bytes));
+  return [...data].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+async function sha256(value) {
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(hash)].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+async function passwordHash(password, salt, iterations = ITERATIONS) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: new TextEncoder().encode(salt), iterations }, key, 256);
+  return [...new Uint8Array(bits)].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+async function body(request) {
+  const value = await request.json();
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid JSON body");
+  return value;
+}
+function clean(value, max = 160) {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+function validEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 190;
+}
+function sameOrigin(request, env) {
+  return request.headers.get("Origin") === env.APP_ORIGIN && !!env.APP_ORIGIN;
+}
+async function getUser(request, env) {
+  const raw = (request.headers.get("Cookie") || "").split(";").map(x => x.trim()).find(x => x.startsWith(COOKIE + "="));
+  if (!raw) return null;
+  const token = raw.slice(COOKIE.length + 1);
+  if (!/^[a-f0-9]{64}$/.test(token)) return null;
+  return env.DB.prepare(`
+    SELECT u.id,u.email,u.display_name,u.role,u.active
+    FROM sessions s JOIN users u ON u.id=s.user_id
+    WHERE s.token_hash=? AND s.expires_at > datetime('now') AND u.active=1
+  `).bind(await sha256(token)).first();
+}
+function requireAdmin(user) { return user && user.role === "admin"; }
+async function createSession(userId, env) {
+  const token = randomHex();
+  const expires = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
+  await env.DB.prepare("INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES(?,?,?,?)")
+    .bind(crypto.randomUUID(), userId, await sha256(token), expires).run();
+  return token;
+}
+async function handle(request, env) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request, env) });
+
+  if (path === "/api/health" && request.method === "GET") {
+    return json({ ok: true, service: "menarat-api", database: !!env.DB });
+  }
+
+  if (path === "/api/setup-admin" && request.method === "POST") {
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
+    if (!env.BOOTSTRAP_SECRET) return json({ error: "Bootstrap is not configured" }, 503);
+    const data = await body(request);
+    if (!data.secret || data.secret !== env.BOOTSTRAP_SECRET) return json({ error: "Forbidden" }, 403);
+    const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM users").first();
+    if (Number(count?.n || 0) !== 0) return json({ error: "Initial setup already completed" }, 409);
+    const email = clean(data.email, 190).toLowerCase();
+    const name = clean(data.displayName || "ADMIN", 100);
+    const password = typeof data.password === "string" ? data.password : "";
+    if (!validEmail(email) || password.length < 12 || password.length > 200) {
+      return json({ error: "Provide a valid email and a password of at least 12 characters" }, 400);
+    }
+    const salt = randomHex(16);
+    const hash = await passwordHash(password, salt);
+    await env.DB.prepare("INSERT INTO users(id,email,display_name,role,password_hash,password_salt,password_iterations) VALUES(?,?,?,?,?,?,?)")
+      .bind(crypto.randomUUID(), email, name, "admin", hash, salt, ITERATIONS).run();
+    return json({ ok: true, message: "Initial administrator created. Remove/rotate bootstrap secret now." }, 201);
+  }
+
+  if (path === "/api/login" && request.method === "POST") {
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
+    const data = await body(request);
+    const email = clean(data.email, 190).toLowerCase();
+    const password = typeof data.password === "string" ? data.password : "";
+    if (!validEmail(email) || !password || password.length > 200) return json({ error: "Invalid credentials" }, 401);
+    const user = await env.DB.prepare("SELECT * FROM users WHERE email=? AND active=1").bind(email).first();
+    if (!user) return json({ error: "Invalid credentials" }, 401);
+    const candidate = await passwordHash(password, user.password_salt, Number(user.password_iterations));
+    if (candidate !== user.password_hash) return json({ error: "Invalid credentials" }, 401);
+    const token = await createSession(user.id, env);
+    return json({ ok: true, user: { id: user.id, email: user.email, displayName: user.display_name, role: user.role } }, 200, {
+      "set-cookie": cookie(token, SESSION_DAYS * 86400)
+    });
+  }
+
+  if (path === "/api/logout" && request.method === "POST") {
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
+    const raw = (request.headers.get("Cookie") || "").split(";").map(x => x.trim()).find(x => x.startsWith(COOKIE + "="));
+    if (raw) await env.DB.prepare("DELETE FROM sessions WHERE token_hash=?").bind(await sha256(raw.slice(COOKIE.length + 1))).run();
+    return json({ ok: true }, 200, { "set-cookie": cookie("", 0) });
+  }
+
+  const user = await getUser(request, env);
+  if (path === "/api/me" && request.method === "GET") {
+    if (!user) return json({ user: null }, 401);
+    return json({ user: { id: user.id, email: user.email, displayName: user.display_name, role: user.role } });
+  }
+  if (!user) return json({ error: "Authentication required" }, 401);
+
+  if (path === "/api/state" && request.method === "GET") {
+    const [products, employees, zones, suppliers, invoices] = await Promise.all([
+      env.DB.prepare("SELECT id, name AS nom, unit AS unite, price AS prix, opening_stock AS stockInitial, current_stock AS stock, supplier_name AS fournisseur FROM products WHERE active=1 ORDER BY name").all(),
+      env.DB.prepare("SELECT name FROM employees WHERE active=1 ORDER BY name").all(),
+      env.DB.prepare("SELECT name FROM zones ORDER BY name").all(),
+      env.DB.prepare("SELECT name AS nom, phone AS tel FROM suppliers ORDER BY name").all(),
+      env.DB.prepare("SELECT i.*, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id ORDER BY i.operation_date DESC").all()
+    ]);
+    const grouped = new Map();
+    for (const row of invoices.results || []) {
+      if (!grouped.has(row.id)) grouped.set(row.id, { id: row.id, date: row.operation_date, type: row.type, employe: row.employee_name, fournisseur: row.supplier_name, zone: row.zone_name, paiement: row.payment_status, lignes: [] });
+      if (row.produit) grouped.get(row.id).lignes.push({ produit: row.produit, unite: row.unite, quantite: row.quantite, prix: row.prix, total: row.total });
+    }
+    return json({
+      user: { id: user.id, email: user.email, displayName: user.display_name, role: user.role },
+      produits: products.results || [], employes: (employees.results || []).map(x => x.name),
+      zones: (zones.results || []).map(x => x.name), fournisseurs: suppliers.results || [],
+      operations: [...grouped.values()], panier: []
+    });
+  }
+
+  if (path.startsWith("/api/admin/")) {
+    if (!requireAdmin(user)) return json({ error: "Admin permission required" }, 403);
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
+    const parts = path.split("/").filter(Boolean);
+    const resource = parts[2];
+    const id = parts[3] || "";
+    const tables = {
+      products: { table: "products", fields: ["name","unit","price","opening_stock","current_stock","supplier_name"] },
+      employees: { table: "employees", fields: ["name"] },
+      zones: { table: "zones", fields: ["name"] },
+      suppliers: { table: "suppliers", fields: ["name","phone"] }
+    };
+    const cfg = tables[resource];
+    if (!cfg) return json({ error: "Unknown admin resource" }, 404);
+    if (request.method === "POST") {
+      const data = await body(request);
+      const name = clean(data.name, 120);
+      if (!name) return json({ error: "Name is required" }, 400);
+      const newId = crypto.randomUUID();
+      if (resource === "products") {
+        const price = Number(data.price), stock = Number(data.stock ?? data.opening_stock ?? 0);
+        if (!Number.isFinite(price) || price < 0 || !Number.isFinite(stock) || stock < 0) return json({ error: "Invalid price or stock" }, 400);
+        await env.DB.prepare("INSERT INTO products(id,name,unit,price,opening_stock,current_stock,supplier_name) VALUES(?,?,?,?,?,?,?)")
+          .bind(newId,name,clean(data.unit,20),price,stock,stock,clean(data.supplier_name,120)).run();
+      } else if (resource === "employees") {
+        await env.DB.prepare("INSERT INTO employees(id,name) VALUES(?,?)").bind(newId,name).run();
+      } else if (resource === "zones") {
+        await env.DB.prepare("INSERT INTO zones(id,name) VALUES(?,?)").bind(newId,name).run();
+      } else {
+        await env.DB.prepare("INSERT INTO suppliers(id,name,phone) VALUES(?,?,?)").bind(newId,name,clean(data.phone,40)).run();
+      }
+      return json({ ok: true, id: newId }, 201);
+    }
+    if (request.method === "DELETE" && id) {
+      const result = await env.DB.prepare(`UPDATE ${cfg.table} SET active=0 WHERE id=?`).bind(id).run();
+      return json({ ok: true, changes: result.meta?.changes || 0 });
+    }
+    return json({ error: "Method not supported for this resource" }, 405);
+  }
+
+  return json({ error: "Not found" }, 404);
+}
+
+export default {
+  async fetch(request, env) {
+    try {
+      const response = await handle(request, env);
+      const headers = new Headers(response.headers);
+      for (const [key, value] of Object.entries(corsHeaders(request, env))) headers.set(key, value);
+      return new Response(response.body, { status: response.status, headers });
+    } catch (error) {
+      console.error("Menarat API error:", error);
+      return json({ error: "Internal server error" }, 500);
+    }
+  }
+};

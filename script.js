@@ -310,7 +310,15 @@ function openChangePasswordModal() {
     document.getElementById('oldPassword').value = '';
     document.getElementById('newPassword').value = '';
     document.getElementById('confirmNewPassword').value = '';
-    document.getElementById('modalChangePassword').style.display = 'flex';
+    const modal = document.getElementById('modalChangePassword');
+    modal.hidden = false;
+    modal.style.display = 'flex';
+}
+
+function closeChangePasswordModal() {
+    const modal = document.getElementById('modalChangePassword');
+    modal.style.display = 'none';
+    modal.hidden = true;
 }
 
 async function changePassword() {

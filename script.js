@@ -270,7 +270,22 @@ function showApp() {
     });
 }
 
-function logout() { localStorage.clear(); location.reload(); }
+async function logout() {
+    try {
+        const auth = window.firebaseAuth;
+        if (auth?.currentUser) {
+            const { signOut } = await import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js");
+            await signOut(auth);
+        }
+    } catch (error) {
+        console.warn('تعذر إنهاء جلسة Firebase بشكل طبيعي:', error);
+    } finally {
+        // نحيدو غير بيانات الجلسة؛ ما نمسحوش النسخ الاحتياطية ولا بيانات التطبيق.
+        localStorage.removeItem('role');
+        localStorage.removeItem('user');
+        location.reload();
+    }
+}
 
 // قائمة الإيميلات ديال الموظفين (خاصك تعمرها بالإيميلات اللي فـ Firebase)
 const employesEmails = {
@@ -280,7 +295,7 @@ const employesEmails = {
     'YOUSSEF lkhiyat': 'youssefelkhyat@menarat.ma',
     // ... زيد الباقي
 };
-function logout() { localStorage.clear(); location.reload(); }
+
 
 function openChangePasswordModal() {
     document.getElementById('oldPassword').value = '';

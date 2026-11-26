@@ -140,19 +140,89 @@ async function handle(request, env) {
       env.DB.prepare("SELECT name FROM employees WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT name FROM zones WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT name AS nom, phone AS tel FROM suppliers WHERE active=1 ORDER BY name").all(),
-      env.DB.prepare("SELECT i.*, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id ORDER BY i.operation_date DESC").all()
+      env.DB.prepare("SELECT i.*, l.id AS line_id, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id ORDER BY i.operation_date DESC").all()
     ]);
-    const grouped = new Map();
-    for (const row of invoices.results || []) {
-      if (!grouped.has(row.id)) grouped.set(row.id, { id: row.id, date: row.operation_date, type: row.type, employe: row.employee_name, fournisseur: row.supplier_name, zone: row.zone_name, paiement: row.payment_status, lignes: [] });
-      if (row.produit) grouped.get(row.id).lignes.push({ produit: row.produit, unite: row.unite, quantite: row.quantite, prix: row.prix, total: row.total });
-    }
+    const operations = (invoices.results || []).filter(row => row.produit).map(row => ({
+      id: row.line_id, factureId: row.id, date: row.operation_date, type: row.type,
+      employe: row.employee_name, fournisseur: row.supplier_name, zone: row.zone_name,
+      paiement: row.payment_status, produit: row.produit, unite: row.unite,
+      quantite: row.quantite, prix: row.prix, total: row.total
+    }));
     return json({
       user: { id: user.id, email: user.email, displayName: user.display_name, role: user.role },
       produits: products.results || [], employes: (employees.results || []).map(x => x.name),
       zones: (zones.results || []).map(x => x.name), fournisseurs: suppliers.results || [],
-      operations: [...grouped.values()], panier: []
+      operations, panier: []
     });
+  }
+
+  if (path === "/api/sales" && request.method === "POST") {
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
+    const data = await body(request);
+    const type = data.type === "achat" ? "achat" : data.type === "vente" ? "vente" : "";
+    if (!type || (type === "achat" && user.role !== "admin")) return json({ error: "Operation not permitted" }, 403);
+    const date = clean(data.date, 10);
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || !Array.isArray(data.lines) || data.lines.length < 1 || data.lines.length > 100) {
+      return json({ error: "Invalid invoice data" }, 400);
+    }
+    const zone = type === "vente" ? clean(data.zone, 120) : "MAGASIN";
+    if (type === "vente" && !zone) return json({ error: "Zone is required" }, 400);
+    const supplier = type === "achat" ? clean(data.supplier, 120) : "";
+    if (type === "achat" && !supplier) return json({ error: "Supplier is required" }, 400);
+    const employeeName = type === "vente"
+      ? (user.role === "employe" ? user.display_name : clean(data.employeeName || user.display_name, 120))
+      : supplier;
+    if (type === "vente" && user.role === "admin" && data.employeeName) {
+      const employee = await env.DB.prepare("SELECT name FROM employees WHERE name=? AND active=1").bind(employeeName).first();
+      if (!employee && employeeName !== user.display_name) return json({ error: "Unknown employee" }, 400);
+    }
+    const aggregated = new Map();
+    for (const line of data.lines) {
+      const name = clean(line.product, 120), quantity = Number(line.quantity);
+      if (!name || !Number.isFinite(quantity) || quantity <= 0 || quantity > 100000) return json({ error: "Invalid invoice line" }, 400);
+      aggregated.set(name, (aggregated.get(name) || 0) + quantity);
+    }
+    const names = [...aggregated.keys()];
+    const marks = names.map(() => "?").join(",");
+    const found = await env.DB.prepare(`SELECT name,unit,price,current_stock FROM products WHERE active=1 AND name IN (${marks})`).bind(...names).all();
+    const productMap = new Map((found.results || []).map(p => [p.name, p]));
+    if (productMap.size !== names.length) return json({ error: "One or more products do not exist" }, 400);
+    const lines = [];
+    for (const line of data.lines) {
+      const name = clean(line.product, 120), product = productMap.get(name), quantity = Number(line.quantity);
+      const price = type === "vente" ? Number(product.price) : Number(line.price);
+      if (!Number.isFinite(price) || price < 0) return json({ error: "Invalid unit price" }, 400);
+      lines.push({ name, unit: product.unit || "", quantity, price, total: quantity * price });
+    }
+    const invoiceId = crypto.randomUUID();
+    const invoiceRef = clean(data.invoiceRef || ("FAC-" + Date.now()), 80);
+    const payment = type === "vente" ? clean(data.payment || "Payé", 30) : "-";
+    const statements = [];
+    const shortageParts = names.map(() => "(name=? AND current_stock < ?)");
+    const shortageArgs = [];
+    for (const [name, qty] of aggregated) shortageArgs.push(name, qty);
+    const stockCondition = type === "vente"
+      ? ` AND NOT EXISTS (SELECT 1 FROM products WHERE ${shortageParts.join(" OR ")})`
+      : "";
+    statements.push(env.DB.prepare(`INSERT INTO invoices(id,invoice_ref,type,operation_date,month_key,employee_name,supplier_name,zone_name,payment_status,created_at_ms)
+      SELECT ?,?,?,?,?,?,?,?,?,? WHERE 1=1${stockCondition}`).bind(
+        invoiceId, invoiceRef, type, date, date.slice(0,7), employeeName, supplier, zone, payment, Date.now(), ...shortageArgs
+      ));
+    for (const [name, qty] of aggregated) {
+      statements.push(type === "vente"
+        ? env.DB.prepare("UPDATE products SET current_stock=current_stock-? WHERE name=? AND EXISTS (SELECT 1 FROM invoices WHERE id=?)").bind(qty,name,invoiceId)
+        : env.DB.prepare("UPDATE products SET current_stock=current_stock+? WHERE name=? AND EXISTS (SELECT 1 FROM invoices WHERE id=?)").bind(qty,name,invoiceId));
+    }
+    for (const line of lines) {
+      statements.push(env.DB.prepare(`INSERT INTO invoice_lines(id,invoice_id,product_name,unit,quantity,unit_price,line_total)
+        SELECT ?,?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM invoices WHERE id=?)`).bind(
+          crypto.randomUUID(), invoiceId, line.name, line.unit, line.quantity, line.price, line.total, invoiceId
+        ));
+    }
+    const results = await env.DB.batch(statements);
+    const invoiceCreated = Number(results?.[0]?.meta?.changes || 0) === 1;
+    if (!invoiceCreated) return json({ error: "Insufficient stock or invoice could not be saved" }, 409);
+    return json({ ok: true, invoiceId, invoiceRef, lines: lines.length }, 201);
   }
 
   if (path.startsWith("/api/admin/")) {

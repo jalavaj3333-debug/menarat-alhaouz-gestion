@@ -1374,13 +1374,11 @@ function renderBilan() {
     const totA = a.reduce((s, o) => s + parseFloat(o.total || 0), 0); 
     const benefice = totV - totA;
     
-    let valeurStock = 0;
-    state.produits.forEach(p => {
-        const e = state.operations.filter(o => o.type === 'achat' && o.produit === p.nom).reduce((s, o) => s + parseFloat(o.quantite), 0);
-        const s = state.operations.filter(o => o.type === 'vente' && o.produit === p.nom).reduce((s, o) => s + parseFloat(o.quantite), 0);
-        const stock = (p.stockInitial || 0) + e - s;
-        valeurStock += stock * (p.prix || 0);
-    });
+    const valeurStock = state.produits.reduce((sum, product) => {
+        const stock = getCurrentProductStock(product);
+        const unitPrice = Number(product.prix) || 0;
+        return sum + Math.max(0, stock) * unitPrice;
+    }, 0);
 
     if (document.getElementById('bilanTotalVentes')) document.getElementById('bilanTotalVentes').textContent = totV.toFixed(2) + ' DH';
     if (document.getElementById('bilanTotalAchats')) document.getElementById('bilanTotalAchats').textContent = totA.toFixed(2) + ' DH';
@@ -1392,7 +1390,7 @@ function renderBilan() {
         tbody.innerHTML = `
             <tr><td>Total Ventes</td><td>${totV.toFixed(2)} DH</td></tr>
             <tr><td>Total Achats</td><td>${totA.toFixed(2)} DH</td></tr>
-            <tr><td>Bénéfice</td><td><strong style="color:${benefice>=0?'#10b981':'#ef4444'}">${benefice.toFixed(2)} DH</strong></td></tr>
+            <tr><td>Écart ventes - achats (hors charges)</td><td><strong style="color:${benefice>=0?'#10b981':'#ef4444'}">${benefice.toFixed(2)} DH</strong></td></tr>
             <tr><td>Valeur du Stock</td><td>${valeurStock.toFixed(2)} DH</td></tr>
         `; 
     } else { 
@@ -1465,7 +1463,7 @@ function exportPDFGlobal() {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('Bénéfice', 167.5, 52, { align: 'center' });
+    doc.text('Écart ventes-achats', 167.5, 52, { align: 'center' });
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text(`${benefice.toFixed(2)} DH`, 167.5, 60, { align: 'center' });

@@ -408,23 +408,24 @@ function exportOperationsCSV() {
     if (!requireAdminAccess('تصدير العمليات')) return;
     if (state.operations.length === 0) { showToast('⚠️ لا توجد عمليات للتصدير', '#f59e0b'); return; }
     const headers = ['Date', 'Type', 'Employé', 'Fournisseur', 'Zone', 'Produit', 'Unité', 'Quantité', 'Prix', 'Total', 'Paiement'];
-    const rows = state.operations.map(op => [ op.date || '', op.type === 'achat' ? 'Achat' : 'Vente', op.employe || '', op.fournisseur || '', op.zone || '', op.produit || '', op.unite || '', op.quantite || 0, op.prix || 0, op.total || 0, op.paiement || '' ]);
-    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const rows = state.operations.map(op => [op.date || '', op.type === 'achat' ? 'Achat' : 'Vente', op.employe || '', op.fournisseur || '', op.zone || '', op.produit || '', op.unite || '', op.quantite || 0, op.prix || 0, op.total || 0, op.paiement || '']);
+    const safeCell = cell => {
+        let value = String(cell ?? '');
+        if (typeof cell === 'string' && /^[=+@\\-\\t\\r]/.test(value)) value = "'" + value;
+        return '"' + value.replace(/"/g, '""') + '"';
+    };
+    const csvContent = [headers, ...rows].map(row => row.map(safeCell).join(';')).join('\r\n');
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url;
-    a.download = `Operations-Menarat-${new Date().toISOString().split('T')[0]}.csv`; a.click();
-    URL.revokeObjectURL(url);
-    showToast(`✅ تم تصدير ${state.operations.length} عملية!`);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'Operations-Menarat-' + new Date().toISOString().split('T')[0] + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('✅ تم تصدير ' + state.operations.length + ' عملية!');
 }
-
-
-
-
-
-
-
-
 
 
 // ============== IMPORT EXCEL STOCK ==============

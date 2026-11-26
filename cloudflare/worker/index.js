@@ -252,7 +252,7 @@ async function handle(request, env) {
       ? ` AND NOT EXISTS (SELECT 1 FROM products WHERE ${shortageParts.join(" OR ")})`
       : "";
     statements.push(env.DB.prepare(`INSERT INTO invoices(id,invoice_ref,type,operation_date,month_key,employee_name,employee_user_id,supplier_name,zone_name,payment_status,created_at_ms)
-      undefined`).bind(
+      SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE 1=1${stockCondition}`).bind(
         invoiceId, invoiceRef, type, date, date.slice(0,7), employeeName, employeeUserId, supplier, zone, payment, Date.now(), ...shortageArgs
       ));
     for (const [name, qty] of aggregated) {

@@ -12,17 +12,43 @@ const fournisseursInitiaux = [ { nom: 'SOTRACOM', tel: '0500000000' } ];
 let firebaseReady = false;
 let db = null;
 
-function waitForFirebase() {
+function waitForFirebase(timeoutMs = 10000) {
     return new Promise((resolve) => {
+        const startedAt = Date.now();
         const check = setInterval(() => {
             if (window.firebaseReady && window.firebaseDB) {
                 clearInterval(check);
                 db = window.firebaseDB;
                 firebaseReady = true;
-                resolve();
+                resolve(true);
+                return;
+            }
+            if (Date.now() - startedAt >= timeoutMs) {
+                clearInterval(check);
+                console.warn('Firebase غير متاح بعد انتهاء مهلة الانتظار؛ سيتم استعمال التخزين المحلي.');
+                resolve(false);
             }
         }, 100);
     });
+}
+
+async function waitForFirebaseAuth(timeoutMs = 10000) {
+    if (window.firebaseAuth) return window.firebaseAuth;
+    await new Promise((resolve, reject) => {
+        const startedAt = Date.now();
+        const check = setInterval(() => {
+            if (window.firebaseAuth) {
+                clearInterval(check);
+                resolve();
+                return;
+            }
+            if (Date.now() - startedAt >= timeoutMs) {
+                clearInterval(check);
+                reject(new Error('Firebase Authentication ما تهيّأش. تحقق من الاتصال وإعدادات Firebase.'));
+            }
+        }, 100);
+    });
+    return window.firebaseAuth;
 }
 function autoBackup() {
     try {
@@ -118,63 +144,87 @@ function switchLoginType(type) {
     document.getElementById('loginError').style.display = 'none';
 }
 
-async function checkAdminLogin() {
-    const email = "admin@menarat.ma";
-    const password = document.getElementById('loginAdminPass').value;
+function showLoginError(message = '❌ Identifiants incorrects') {
+    const errorBox = document.getElementById('loginError');
+    if (errorBox) {
+        errorBox.textContent = message;
+        errorBox.style.display = 'block';
+    }
+}
 
+async function checkAdminLogin() {
+    const password = document.getElementById('loginAdminPass')?.value || '';
     if (!password) {
-        document.getElementById('loginError').style.display = 'block';
+        showLoginError('⚠️ دخل كلمة سر Admin');
         return;
     }
 
+    const button = document.querySelector('#formAdmin button');
+    const oldText = button?.textContent;
+    if (button) { button.disabled = true; button.textContent = '⏳ جاري التحقق...'; }
+
     try {
+        const auth = await waitForFirebaseAuth();
         const { signInWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js");
-        await signInWithEmailAndPassword(window.firebaseAuth, email, password);
-        
-        userRole = 'admin'; 
+        await signInWithEmailAndPassword(auth, "admin@menarat.ma", password);
+
+        userRole = 'admin';
         currentUser = 'ADMIN';
-        localStorage.setItem('role', 'admin'); 
+        localStorage.setItem('role', 'admin');
         localStorage.setItem('user', 'ADMIN');
-        
-        showApp(); 
+        showApp();
     } catch (error) {
-        console.error("خطأ فالدخول:", error.code, error.message);
-        document.getElementById('loginError').style.display = 'block';
-        showToast('❌ الإيميل أو كلمة السر خاطئة', '#ef4444');
+        console.error('خطأ فدخول Admin:', error.code || '', error);
+        const message = error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found'
+            ? '❌ كلمة السر ديال Admin غير صحيحة'
+            : '❌ تعذر الاتصال بخدمة تسجيل الدخول. تحقق من الإنترنت وإعدادات Firebase.';
+        showLoginError(message);
+        showToast(message, '#ef4444');
+    } finally {
+        if (button) { button.disabled = false; button.textContent = oldText || 'Se connecter (Admin)'; }
     }
 }
 
 async function checkEmployeLogin() {
-    const email = document.getElementById('loginEmpNom').value.trim();
-    const password = document.getElementById('loginEmpPass').value;
+    const email = (document.getElementById('loginEmpNom')?.value || '').trim();
+    const password = document.getElementById('loginEmpPass')?.value || '';
 
     if (!email || !password) {
-        document.getElementById('loginError').style.display = 'block';
+        showLoginError('⚠️ دخل البريد الإلكتروني وكلمة السر');
         return;
     }
 
+    const button = document.querySelector('#formEmploye button');
+    const oldText = button?.textContent;
+    if (button) { button.disabled = true; button.textContent = '⏳ جاري التحقق...'; }
+
     try {
+        const auth = await waitForFirebaseAuth();
         const { signInWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js");
-        const userCredential = await signInWithEmailAndPassword(window.firebaseAuth, email, password);
-        
-        const userEmail = userCredential.user.email;
-        let nomEmploye = userEmail.split('@')[0].toUpperCase();
-        
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+        const userEmail = (userCredential.user.email || email).toLowerCase();
+        const nomEmploye = userEmail.split('@')[0].toUpperCase();
+
         if (!state.employes.includes(nomEmploye)) {
             state.employes.push(nomEmploye);
-            saveState();
+            await saveState();
         }
 
         userRole = 'employe';
         currentUser = nomEmploye;
         localStorage.setItem('role', 'employe');
         localStorage.setItem('user', nomEmploye);
-        
-        showApp(); 
+        showApp();
     } catch (error) {
-        console.error(error);
-        document.getElementById('loginError').style.display = 'block';
-        showToast('❌ الإيميل أو كلمة السر خاطئة', '#ef4444');
+        console.error('خطأ فدخول Employé:', error.code || '', error);
+        const message = error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found'
+            ? '❌ البريد الإلكتروني أو كلمة السر غير صحيحة'
+            : '❌ تعذر الاتصال بخدمة تسجيل الدخول. تحقق من الإنترنت وإعدادات Firebase.';
+        showLoginError(message);
+        showToast(message, '#ef4444');
+    } finally {
+        if (button) { button.disabled = false; button.textContent = oldText || 'Se connecter (Employé)'; }
     }
 }
 

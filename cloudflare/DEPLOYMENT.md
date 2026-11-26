@@ -31,13 +31,15 @@ This endpoint succeeds only while the D1 users table is empty. After creating th
 - `GET /api/me`, `GET /api/state`
 - `POST /api/sales` (server-priced sales, admin-only purchases, stock-checked invoice batch)
 - `POST /api/admin/products`
+- `PUT /api/admin/products/<id>` (updates product name, unit, sale price, and supplier without changing stock)
 - `POST /api/admin/employees` (creates a new employee login)
 - `POST /api/admin/zones`, `POST /api/admin/suppliers`
 - `DELETE /api/admin/{products|employees|zones|suppliers}/<id>` (soft delete / deactivate)
 
 ## Not yet production-ready
-- Product editing, password change/reset, invoice details/grouping, reports, returns, credit settlement, and payment tracking.
-- Login rate limiting / Turnstile, audit log, automated tests, and independent security review.
+- Password change/reset, invoice details/grouping, reports, returns, credit settlement, and payment tracking.
+- The Worker now limits repeated failed logins per hashed IP-and-email key (8 failures in a 15-minute window). Add Cloudflare WAF/rate-limiting rules as another layer before production.
+- Turnstile, audit log, automated tests, and independent security review.
 - Full browser tests for admin and employee roles, stock edge cases, session expiry, and mobile layouts.
 
 ## Data separation — mandatory

@@ -25,10 +25,12 @@
         <div class="login-box">
             <h2>🔐 Connexion</h2>
             <p>Entrez vos identifiants</p>
-            
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <button type="button" id="btnAdmin" onclick="switchLoginType('admin')" style="flex: 1; padding: 10px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">👑 Admin</button>
-                <button type="button" id="btnEmploye" onclick="switchLoginType('employe')" style="flex: 1; padding: 10px; background: #e2e8f0; color: #333; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">👤 Employé</button>
+            <div class="login-role-group">
+                <label for="loginRole">Type de compte</label>
+                <select id="loginRole" class="login-role-select" onchange="switchLoginType(this.value)">
+                    <option value="admin">👑 Administrateur</option>
+                    <option value="employe">👤 Employé</option>
+                </select>
             </div>
 
             <div id="formAdmin">

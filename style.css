@@ -780,7 +780,15 @@ body::before {
 
 /* FULL-SCREEN BRAND BACKGROUND */
 .login-container {
-    position: relative;
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    min-height: 100dvh !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
     isolation: isolate;
     overflow: hidden;
     background-color: #0b1220;

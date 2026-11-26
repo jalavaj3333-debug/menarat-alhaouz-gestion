@@ -29,6 +29,7 @@ This endpoint succeeds only while the users table is empty. After the first admi
 - `POST /api/logout`
 - `GET /api/me`
 - `GET /api/state` (authenticated read)
+- `POST /api/sales` (server-priced sales, admin-only purchases, stock-checked invoice batch)
 - `POST /api/admin/products`
 - `POST /api/admin/employees`
 - `POST /api/admin/zones`
@@ -38,7 +39,7 @@ This endpoint succeeds only while the users table is empty. After the first admi
 ## Important limitations before production
 This is the first backend foundation, **not yet a complete replacement application**:
 - Existing frontend still uses Firebase Auth/Firestore. Do not switch it over yet.
-- Sales/stock transactions, invoice editing, employee account provisioning, full update flows, password change/reset, audit log, and legacy Firebase import are not implemented yet.
+- Invoice editing, employee login-account provisioning, full update flows, password change/reset, audit log, and legacy Firebase import are not implemented yet. The initial `POST /api/sales` endpoint now records new invoices and updates stock in a D1 batch; it still needs staging tests and integration with the frontend.
 - Add rate limiting / Cloudflare Turnstile protection to login and setup before public production use.
 - Validate the full workflow on a staging URL with test data before any cutover.
 - Do not import real customer/business data until the importer has been implemented and verified.

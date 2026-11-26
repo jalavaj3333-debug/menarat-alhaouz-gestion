@@ -1467,6 +1467,7 @@ async function addUserToFirebase(email, password) {
     }
 
     let secondaryApp = null;
+    let deleteFirebaseApp = null;
 
     try {
         const [{ initializeApp, deleteApp }, {
@@ -1478,6 +1479,7 @@ async function addUserToFirebase(email, password) {
         ]);
 
         // حساب Firebase ثانوي: إنشاء الموظف بلا ما نخرجو Admin من جلسته الحالية.
+        deleteFirebaseApp = deleteApp;
         secondaryApp = initializeApp(
             window.firebaseAuth.app.options,
             'menarat-employee-creator-' + Date.now()
@@ -1506,10 +1508,9 @@ async function addUserToFirebase(email, password) {
             showToast('❌ تعذر إنشاء الحساب: ' + (error.message || 'خطأ غير معروف'), '#ef4444');
         }
     } finally {
-        if (secondaryApp) {
+        if (secondaryApp && deleteFirebaseApp) {
             try {
-                const { deleteApp } = await import("https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js");
-                await deleteApp(secondaryApp);
+                await deleteFirebaseApp(secondaryApp);
             } catch (cleanupError) {
                 console.warn('تعذر إغلاق جلسة Firebase الثانوية:', cleanupError);
             }

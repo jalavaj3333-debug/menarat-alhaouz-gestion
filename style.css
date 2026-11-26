@@ -746,3 +746,31 @@ button:focus-visible, input:focus-visible, select:focus-visible {
         transition-duration: .01ms !important;
     }
 }
+
+
+/* MENARAT AL HAOUZ logo watermark — subtle, behind the app */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: url("./logo.png");
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: min(42vw, 430px) auto;
+    opacity: 0.055;
+}
+#mainApp {
+    position: relative;
+    z-index: 1;
+}
+.login-container {
+    background-color: rgba(15, 23, 42, 0.52);
+}
+@media (max-width: 600px) {
+    body::before {
+        background-size: min(72vw, 300px) auto;
+        opacity: 0.045;
+    }
+}

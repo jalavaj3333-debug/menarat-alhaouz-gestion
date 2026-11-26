@@ -772,10 +772,32 @@ function renderAccueil() {
     if (userRole === 'admin') checkNotifs();
     renderTopProduitsHome();
     renderStatsAvancees();
+    if (userRole === 'admin') renderStockInsights();
 }
 
 
-// ============== CHART TOP PRODUITS ==============
+// ============== SMART STOCK INSIGHTS ==============\n
+function getCurrentProductStock(product) {
+    const opening = Number(product.stockInitial) || 0;
+    const purchases = state.operations.filter(op => op.type === 'achat' && op.produit === product.nom).reduce((sum, op) => sum + (Number(op.quantite) || 0), 0);
+    const sales = state.operations.filter(op => op.type === 'vente' && op.produit === product.nom).reduce((sum, op) => sum + (Number(op.quantite) || 0), 0);
+    return opening + purchases - sales;
+}
+function renderStockInsights() {
+    const rows = document.getElementById('stockInsightRows');
+    if (!rows || userRole !== 'admin') return;
+    const safe = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const inventory = state.produits.map(product => ({ product, stock: getCurrentProductStock(product), price: Number(product.prix) || 0 }));
+    const low = inventory.filter(item => item.stock <= 5).sort((a, b) => a.stock - b.stock);
+    const empty = inventory.filter(item => item.stock <= 0);
+    const value = inventory.reduce((sum, item) => sum + Math.max(0, item.stock) * item.price, 0);
+    document.getElementById('stockInsightProducts').textContent = inventory.length;
+    document.getElementById('stockInsightLow').textContent = low.length;
+    document.getElementById('stockInsightEmpty').textContent = empty.length;
+    document.getElementById('stockInsightValue').textContent = value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DH';
+    rows.innerHTML = low.length ? low.slice(0, 8).map(item => '<tr><td><strong>' + safe(item.product.nom) + '</strong></td><td>' + safe(item.product.fournisseur || '—') + '</td><td><strong>' + item.stock + ' ' + safe(item.product.unite || '') + '</strong></td><td>' + item.price.toFixed(2) + ' DH</td><td>' + (item.stock <= 0 ? '<span class="stock-status stock-status-empty">نفد المخزون</span>' : '<span class="stock-status stock-status-low">مخزون منخفض</span>') + '</td></tr>').join('') : '<tr><td colspan="5" class="stock-insights-empty">ممتاز! لا توجد منتجات بمخزون منخفض حالياً.</td></tr>';
+}
+\n// ============== CHART TOP PRODUITS ==============
 
 function renderTopProduitsHome() {
     const ctx = document.getElementById('chartTopProduitsHome');

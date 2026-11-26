@@ -138,8 +138,8 @@ async function handle(request, env) {
     const [products, employees, zones, suppliers, invoices] = await Promise.all([
       env.DB.prepare("SELECT id, name AS nom, unit AS unite, price AS prix, opening_stock AS stockInitial, current_stock AS stock, supplier_name AS fournisseur FROM products WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT name FROM employees WHERE active=1 ORDER BY name").all(),
-      env.DB.prepare("SELECT name FROM zones ORDER BY name").all(),
-      env.DB.prepare("SELECT name AS nom, phone AS tel FROM suppliers ORDER BY name").all(),
+      env.DB.prepare("SELECT name FROM zones WHERE active=1 ORDER BY name").all(),
+      env.DB.prepare("SELECT name AS nom, phone AS tel FROM suppliers WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT i.*, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id ORDER BY i.operation_date DESC").all()
     ]);
     const grouped = new Map();

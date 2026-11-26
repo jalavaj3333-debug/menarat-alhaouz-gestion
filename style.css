@@ -778,8 +778,10 @@ body::before {
 
 
 
-/* FULL-SCREEN BRAND BACKGROUND */
-.login-container {
+/* FULL-SCREEN BRAND BACKGROUND — login screen only.
+   Do not apply display:flex to the password modal: its inline display:none
+   must remain effective until the user opens it after signing in. */
+#loginScreen.login-container {
     position: fixed !important;
     inset: 0 !important;
     width: 100vw !important;
@@ -793,7 +795,7 @@ body::before {
     overflow: hidden;
     background-color: #0b1220;
 }
-.login-container::before {
+#loginScreen#loginScreen.login-container::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -814,7 +816,7 @@ body::before {
     backdrop-filter: blur(8px);
 }
 @media (max-width: 600px) {
-    .login-container::before {
+    #loginScreen.login-container::before {
         background-position: center;
         background-size: cover;
     }

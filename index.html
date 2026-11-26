@@ -107,6 +107,24 @@
                 <div id="alertStock" style="display:none; background:#fef2f2; color:#ef4444; border:1px solid #fecaca; padding:12px 15px; border-radius:8px; margin-bottom:20px; font-weight:bold; font-size:13px;">
                     ⚠️ تنبيه: كاينين منتجات وصلو للـ 0 ولا قل من 5 فـ المخزن!
                 </div>
+                <section class="admin-dashboard-hero admin-only" aria-label="لوحة تحكم المدير">
+                    <div class="admin-hero-copy">
+                        <span class="admin-eyebrow">MENARAT AL HAOUZ · ADMINISTRATION</span>
+                        <h2>مرحباً بك في لوحة الإدارة</h2>
+                        <p>نظرة شاملة على نشاط التسيير، مع وصول سريع لأهم المهام اليومية.</p>
+                    </div>
+                    <div class="admin-hero-actions">
+                        <button type="button" class="admin-action-primary" onclick="showPage('ajouter')">＋ عملية جديدة</button>
+                        <button type="button" class="admin-action-light" onclick="showPage('bilan')">عرض التقارير ←</button>
+                    </div>
+                    <div class="admin-quick-links" aria-label="اختصارات الإدارة">
+                        <button type="button" onclick="showPage('produits')"><span>📦</span><strong>المنتجات</strong><small>المخزون والأسعار</small></button>
+                        <button type="button" onclick="showPage('employes')"><span>👥</span><strong>الموظفون</strong><small>الحسابات والفرق</small></button>
+                        <button type="button" onclick="showPage('fournisseurs')"><span>🚚</span><strong>الموردون</strong><small>بيانات التوريد</small></button>
+                        <button type="button" onclick="showPage('zones')"><span>📍</span><strong>مناطق العمل</strong><small>تنظيم التوزيع</small></button>
+                    </div>
+                </section>
+
                 <div class="stats-grid">
                     <div class="stat-card stat-green"><h3>Total Ventes</h3><p id="statTotal">0.00 DH</p></div>
                     <div class="stat-card stat-blue"><h3>Quantité Totale</h3><p id="statQuantite">0</p></div>

@@ -805,7 +805,7 @@ function exportStockInsightsCSV() {
     const rows = [['Produit', 'Fournisseur', 'Unite', 'Stock initial', 'Achats', 'Ventes', 'Stock actuel', 'Prix unitaire (DH)', 'Valeur stock (DH)', 'Statut']];
     const safeCell = value => {
         let text = String(value ?? '');
-        if (/^[=+@\\-\\t\\r]/.test(text)) text = "'" + text;
+        if (/^[=+@-]/.test(text)) text = "'" + text;
         return '"' + text.replace(/"/g, '""') + '"';
     };
     state.produits.forEach(product => {
@@ -829,7 +829,8 @@ function exportStockInsightsCSV() {
     URL.revokeObjectURL(url);
     showToast('✅ تم تصدير تقرير المخزون (' + state.produits.length + ' منتج)');
 }
-\n// ============== CHART TOP PRODUITS ==============
+
+// ============== CHART TOP PRODUITS ==============
 
 function renderTopProduitsHome() {
     const ctx = document.getElementById('chartTopProduitsHome');

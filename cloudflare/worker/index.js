@@ -137,9 +137,9 @@ async function handle(request, env) {
   if (path === "/api/state" && request.method === "GET") {
     const [products, employees, zones, suppliers, invoices] = await Promise.all([
       env.DB.prepare("SELECT id, name AS nom, unit AS unite, price AS prix, opening_stock AS stockInitial, current_stock AS stock, supplier_name AS fournisseur FROM products WHERE active=1 ORDER BY name").all(),
-      env.DB.prepare("SELECT name FROM employees WHERE active=1 ORDER BY name").all(),
-      env.DB.prepare("SELECT name FROM zones WHERE active=1 ORDER BY name").all(),
-      env.DB.prepare("SELECT name AS nom, phone AS tel FROM suppliers WHERE active=1 ORDER BY name").all(),
+      env.DB.prepare("SELECT id, name FROM employees WHERE active=1 ORDER BY name").all(),
+      env.DB.prepare("SELECT id, name FROM zones WHERE active=1 ORDER BY name").all(),
+      env.DB.prepare("SELECT id, name AS nom, phone AS tel FROM suppliers WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT i.*, l.id AS line_id, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id ORDER BY i.operation_date DESC").all()
     ]);
     const operations = (invoices.results || []).filter(row => row.produit).map(row => ({
@@ -150,8 +150,8 @@ async function handle(request, env) {
     }));
     return json({
       user: { id: user.id, email: user.email, displayName: user.display_name, role: user.role },
-      produits: products.results || [], employes: (employees.results || []).map(x => x.name),
-      zones: (zones.results || []).map(x => x.name), fournisseurs: suppliers.results || [],
+      produits: products.results || [], employes: employees.results || [],
+      zones: zones.results || [], fournisseurs: suppliers.results || [],
       operations, panier: []
     });
   }

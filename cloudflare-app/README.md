@@ -18,7 +18,7 @@ This folder is a separate frontend for the new Cloudflare edition. It does not l
 
 ## Not ready for production yet
 - The Worker, Pages routing, new D1 database, and first admin account have not been configured/deployed.
-- Product editing and password change/reset are not implemented.
+- Password change/reset is not implemented yet. Product editing is available to administrators.
 - Invoice grouping/detail screens, reports, returns, credit settlement, and payment tracking need implementation.
 - Login rate limiting / Turnstile, audit logging, automated tests, and a security review are still required.
 - Browser end-to-end tests must pass on a staging URL before release.

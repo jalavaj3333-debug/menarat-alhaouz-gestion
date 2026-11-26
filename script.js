@@ -950,13 +950,7 @@ function validerFacture(e) {
     if (type === 'vente') {
         for (const [productName, requestedQuantity] of quantitiesByProduct) {
             const product = state.produits.find(p => p.nom === productName);
-            const purchased = state.operations
-                .filter(o => o.type === 'achat' && o.produit === productName)
-                .reduce((sum, o) => sum + Number(o.quantite || 0), 0);
-            const sold = state.operations
-                .filter(o => o.type === 'vente' && o.produit === productName)
-                .reduce((sum, o) => sum + Number(o.quantite || 0), 0);
-            const available = Number(product.stockInitial || 0) + purchased - sold;
+            const available = getCurrentProductStock(product);
 
             if (requestedQuantity > available) {
                 showToast(

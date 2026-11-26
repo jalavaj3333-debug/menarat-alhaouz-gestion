@@ -53,6 +53,11 @@ function clean(value, max = 160) {
 function validEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 190;
 }
+function validDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(value + "T00:00:00.000Z");
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
 function sameOrigin(request, env) {
   return request.headers.get("Origin") === env.APP_ORIGIN && !!env.APP_ORIGIN;
 }
@@ -163,7 +168,7 @@ async function handle(request, env) {
     const type = data.type === "achat" ? "achat" : data.type === "vente" ? "vente" : "";
     if (!type || (type === "achat" && user.role !== "admin")) return json({ error: "Operation not permitted" }, 403);
     const date = clean(data.date, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Array.isArray(data.lines) || data.lines.length < 1 || data.lines.length > 100) {
+    if (!validDate(date) || !Array.isArray(data.lines) || data.lines.length < 1 || data.lines.length > 100) {
       return json({ error: "Invalid invoice data" }, 400);
     }
     const zone = type === "vente" ? clean(data.zone, 120) : "MAGASIN";

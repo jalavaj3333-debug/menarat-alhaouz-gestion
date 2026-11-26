@@ -1091,3 +1091,7 @@ body.dark-mode .sidebar { background: linear-gradient(180deg, #0b1428, #111f3b 7
     #loginScreen.login-container { padding: 16px !important; }
     #loginScreen.login-container > .login-box { width: 100% !important; }
 }
+
+
+/* Keep the password dialog hidden until explicitly opened */
+.change-password-modal[hidden] { display: none !important; }

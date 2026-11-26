@@ -805,7 +805,7 @@ function exportStockInsightsCSV() {
     const rows = [['Produit', 'Fournisseur', 'Unite', 'Stock initial', 'Achats', 'Ventes', 'Stock actuel', 'Prix unitaire (DH)', 'Valeur stock (DH)', 'Statut']];
     const safeCell = value => {
         let text = String(value ?? '');
-        if (/^[=+@-]/.test(text)) text = "'" + text;
+        if (typeof value === 'string' && /^[=+@\\-\\t\\r]/.test(text)) text = "'" + text;
         return '"' + text.replace(/"/g, '""') + '"';
     };
     state.produits.forEach(product => {
@@ -817,8 +817,8 @@ function exportStockInsightsCSV() {
         const status = stock <= 0 ? 'Rupture' : stock <= 5 ? 'Stock faible' : 'Normal';
         rows.push([product.nom, product.fournisseur || '', product.unite || '', opening, purchases, sales, stock, price.toFixed(2), (Math.max(0, stock) * price).toFixed(2), status]);
     });
-    const csv = rows.map(row => row.map(safeCell).join(';')).join('\\r\\n');
-    const blob = new Blob(['\\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const csv = rows.map(row => row.map(safeCell).join(';')).join('\r\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -826,10 +826,9 @@ function exportStockInsightsCSV() {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     showToast('✅ تم تصدير تقرير المخزون (' + state.produits.length + ' منتج)');
 }
-
 // ============== CHART TOP PRODUITS ==============
 
 function renderTopProduitsHome() {

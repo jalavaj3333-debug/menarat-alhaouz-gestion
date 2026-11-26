@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   operation_date TEXT NOT NULL,
   month_key TEXT NOT NULL DEFAULT '',
   employee_name TEXT NOT NULL DEFAULT '',
+  employee_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   supplier_name TEXT NOT NULL DEFAULT '',
   zone_name TEXT NOT NULL DEFAULT '',
   payment_status TEXT NOT NULL DEFAULT '-',

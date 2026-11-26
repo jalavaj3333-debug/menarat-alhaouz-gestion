@@ -99,7 +99,17 @@ async function loadState() {
             await saveState();
         }
     } catch (e) {
-        initDefaultData();
+        console.error('❌ تعذر تحميل بيانات Firebase؛ لن يتم استبدال البيانات الافتراضية ببيانات فارغة:', e);
+        const saved = localStorage.getItem('menarat_state_v27');
+        if (saved) {
+            try {
+                const localState = JSON.parse(saved);
+                if (localState && typeof localState === 'object') Object.assign(state, localState);
+            } catch (localError) {
+                console.error('❌ النسخة المحلية غير قابلة للقراءة:', localError);
+            }
+        }
+        // لا ننشئ بيانات افتراضية ولا نحفظها فوق بيانات Firebase عند فشل الاتصال.
     }
 }
 function initDefaultData() { state.employes = [...employesInitiaux]; state.zones = [...zonesInitiales]; state.produits = [...produitsInitiaux]; state.fournisseurs = [...fournisseursInitiaux]; saveState(); }
@@ -204,7 +214,15 @@ async function checkEmployeLogin() {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
         const userEmail = (userCredential.user.email || email).toLowerCase();
-        const nomEmploye = userEmail.split('@')[0].toUpperCase();
+        const emailPrefix = userEmail.split('@')[0].toUpperCase();
+        // الحفاظ على أسماء الموظفين المعروفة المستعملة سابقاً في العمليات.
+        const employeNamesByEmailPrefix = {
+            'HICHAMELMOUDALI': 'HICHAM',
+            'RIDABOUR': 'RIDA',
+            'HAMZAKOWAY': 'HAMZA KOWAY',
+            'YOUSSEF': 'YOUSSEF LKHIYAT'
+        };
+        const nomEmploye = employeNamesByEmailPrefix[emailPrefix] || emailPrefix;
 
         if (!state.employes.includes(nomEmploye)) {
             state.employes.push(nomEmploye);
@@ -1595,52 +1613,7 @@ function autoFillPrix() {
         inputPrix.value = ''; // إلا ما اختارش منتج، كنمسحو الثمن
     }
 }
-async function checkEmployeLogin() {
-    const email = document.getElementById('loginEmpNom').value.trim();
-    const password = document.getElementById('loginEmpPass').value;
-
-    if (!email || !password) {
-        document.getElementById('loginError').style.display = 'block';
-        return;
-    }
-
-    try {
-        const { signInWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js");
-        const userCredential = await signInWithEmailAndPassword(window.firebaseAuth, email, password);
-        
-        const userEmail = userCredential.user.email;
-        let nomEmploye = userEmail.split('@')[0].toUpperCase();
-        
-        // هاد الجزء باش نربطو الإيميل بالسمية الحقيقية
-        const employesEmails = {
-            'HICHAMELMOUDALI': 'HICHAM',
-            'RIDABOUR': 'RIDA',       // حط هنا الجزء الأول من الإيميل ديال رضا
-            'HAMZAKOWAY': 'HAMZA KOWAY',
-            'YOUSSEF': 'YOUSSEF LKHIYAT'
-            // زيد الباقي على حساب الإيميلات اللي فـ Firebase
-        };
-        
-        if (employesEmails[nomEmploye]) {
-            nomEmploye = employesEmails[nomEmploye];
-        }
-
-        if (!state.employes.includes(nomEmploye)) {
-            state.employes.push(nomEmploye);
-            saveState();
-        }
-
-        userRole = 'employe';
-        currentUser = nomEmploye;
-        localStorage.setItem('role', 'employe');
-        localStorage.setItem('user', nomEmploye);
-        
-        showApp(); 
-    } catch (error) {
-        console.error(error);
-        document.getElementById('loginError').style.display = 'block';
-        showToast('❌ الإيميل أو كلمة السر خاطئة', '#ef4444');
-    }
-}function exportRapportMensuelPDF() {
+function exportRapportMensuelPDF() {
     if (typeof window.jspdf === 'undefined') {
         showToast('❌ مكتبة PDF ماشي محملة', '#ef4444');
         return;

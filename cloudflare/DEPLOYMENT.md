@@ -29,7 +29,7 @@ This endpoint succeeds only while the D1 users table is empty. After creating th
 - `POST /api/setup-admin` (one-time)
 - `POST /api/login`, `POST /api/logout`
 - `GET /api/me`, `GET /api/state`
-- `POST /api/sales` (server-priced sales, admin-only purchases, stock-checked invoice batch)
+- `POST /api/sales` (server-priced sales, admin-only purchases, stock-checked invoice batch; sales are linked to employee account IDs for private employee history)
 - `POST /api/admin/products`
 - `PUT /api/admin/products/<id>` (updates product name, unit, sale price, and supplier without changing stock)
 - `POST /api/admin/employees` (creates a new employee login)

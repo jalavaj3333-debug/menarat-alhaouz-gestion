@@ -347,7 +347,7 @@ async function changePassword() {
         await updatePassword(user, newPass);
         
         showToast('✅ تبدلت كلمة السر بنجاح!');
-        document.getElementById('modalChangePassword').style.display = 'none';
+        closeChangePasswordModal();
     } catch (error) {
         console.error(error);
         if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {

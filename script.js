@@ -798,6 +798,37 @@ function renderStockInsights() {
     document.getElementById('stockInsightValue').textContent = value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DH';
     rows.innerHTML = low.length ? low.slice(0, 8).map(item => '<tr><td><strong>' + safe(item.product.nom) + '</strong></td><td>' + safe(item.product.fournisseur || '—') + '</td><td><strong>' + item.stock + ' ' + safe(item.product.unite || '') + '</strong></td><td>' + item.price.toFixed(2) + ' DH</td><td>' + (item.stock <= 0 ? '<span class="stock-status stock-status-empty">نفد المخزون</span>' : '<span class="stock-status stock-status-low">مخزون منخفض</span>') + '</td></tr>').join('') : '<tr><td colspan="5" class="stock-insights-empty">ممتاز! لا توجد منتجات بمخزون منخفض حالياً.</td></tr>';
 }
+
+
+function exportStockInsightsCSV() {
+    if (!requireAdminAccess('تصدير تقرير المخزون')) return;
+    const rows = [['Produit', 'Fournisseur', 'Unite', 'Stock initial', 'Achats', 'Ventes', 'Stock actuel', 'Prix unitaire (DH)', 'Valeur stock (DH)', 'Statut']];
+    const safeCell = value => {
+        let text = String(value ?? '');
+        if (/^[=+@\\-\\t\\r]/.test(text)) text = "'" + text;
+        return '"' + text.replace(/"/g, '""') + '"';
+    };
+    state.produits.forEach(product => {
+        const purchases = state.operations.filter(op => op.type === 'achat' && op.produit === product.nom).reduce((sum, op) => sum + (Number(op.quantite) || 0), 0);
+        const sales = state.operations.filter(op => op.type === 'vente' && op.produit === product.nom).reduce((sum, op) => sum + (Number(op.quantite) || 0), 0);
+        const opening = Number(product.stockInitial) || 0;
+        const stock = opening + purchases - sales;
+        const price = Number(product.prix) || 0;
+        const status = stock <= 0 ? 'Rupture' : stock <= 5 ? 'Stock faible' : 'Normal';
+        rows.push([product.nom, product.fournisseur || '', product.unite || '', opening, purchases, sales, stock, price.toFixed(2), (Math.max(0, stock) * price).toFixed(2), status]);
+    });
+    const csv = rows.map(row => row.map(safeCell).join(';')).join('\\r\\n');
+    const blob = new Blob(['\\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'Rapport-Stock-Menarat-' + new Date().toISOString().split('T')[0] + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showToast('✅ تم تصدير تقرير المخزون (' + state.produits.length + ' منتج)');
+}
 \n// ============== CHART TOP PRODUITS ==============
 
 function renderTopProduitsHome() {

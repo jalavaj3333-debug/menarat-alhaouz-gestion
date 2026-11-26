@@ -23,7 +23,26 @@ function renderAll(){const d=state.data;const sales=d.operations.filter(x=>x.typ
 const recent=[...d.operations].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,7);$("recentList").innerHTML=table(["التاريخ","النوع","المنتج","الكمية","المجموع"],recent.map(x=>'<tr><td>'+esc(x.date)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td></tr>'));
 renderProducts();renderHistory();renderNamedLists();refreshSaleOptions()}
 function renderProducts(){const q=($("productSearch")?.value||"").toLowerCase();const list=state.data.produits.filter(p=>p.nom.toLowerCase().includes(q));$("productsTable").innerHTML=table(["المنتج","الوحدة","الثمن","المخزون","المورد",...(isAdmin()?["إجراء"]:[])],list.map(p=>'<tr><td>'+esc(p.nom)+'</td><td>'+esc(p.unite)+'</td><td>'+money(p.prix)+'</td><td>'+esc(p.stock)+'</td><td>'+esc(p.fournisseur||"—")+'</td>'+(isAdmin()?'<td><button class="outline" data-edit-product="'+esc(p.id)+'">تعديل</button> <button class="danger" data-delete="products" data-id="'+esc(p.id)+'">حذف</button></td>':"")+'</tr>'))}
-function renderHistory(){const ops=[...state.data.operations].sort((a,b)=>String(b.date).localeCompare(String(a.date)));$("historyTable").innerHTML=table(["التاريخ","رقم الفاتورة","النوع","الموظف / المورد","المنطقة","المنتج","الكمية","المجموع"],ops.map(x=>'<tr><td>'+esc(x.date)+'</td><td>'+esc(x.factureId)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.employe||x.fournisseur||"—")+'</td><td>'+esc(x.zone||"—")+'</td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td></tr>'))}
+function getFilteredOperations(){
+  const q=($("historySearch")?.value||"").trim().toLocaleLowerCase();
+  const type=$("historyType")?.value||"";
+  const from=$("historyFrom")?.value||"";
+  const to=$("historyTo")?.value||"";
+  return [...state.data.operations].filter(x=>{
+    if(type&&x.type!==type)return false;
+    const date=String(x.date||"");
+    if(from&&date<from)return false;
+    if(to&&date>to)return false;
+    const haystack=[x.factureId,x.produit,x.employe,x.fournisseur,x.zone].join(" ").toLocaleLowerCase();
+    return !q||haystack.includes(q);
+  }).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+}
+function renderHistory(){
+  const ops=getFilteredOperations();
+  const total=ops.reduce((sum,x)=>sum+(Number(x.total)||0),0);
+  $("historySummary").textContent=ops.length+" سطر من العمليات — المجموع: "+money(total);
+  $("historyTable").innerHTML=table(["التاريخ","رقم الفاتورة","النوع","الموظف / المورد","المنطقة","المنتج","الكمية","المجموع"],ops.map(x=>'<tr><td>'+esc(x.date)+'</td><td>'+esc(x.factureId)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.employe||x.fournisseur||"—")+'</td><td>'+esc(x.zone||"—")+'</td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td></tr>'));
+}
 function renderNamedLists(){const cfg=[["employeesTable",state.data.employes,"employees"],["zonesTable",state.data.zones,"zones"],["suppliersTable",state.data.fournisseurs,"suppliers"]];for(const [id,items,resource] of cfg){const rows=items.map(x=>{const name=x.nom||x.name||x;const id=typeof x==="object"?x.id:"";return '<tr><td>'+esc(name)+'</td><td>'+(resource==="suppliers"?esc(x.tel||x.phone||"—"):"")+'</td>'+(isAdmin()?'<td><button class="danger" data-delete="'+resource+'" data-id="'+esc(id)+'">تعطيل</button></td>':"")+'</tr>'});$(id).innerHTML=table(resource==="suppliers"?(isAdmin()?["الاسم","الهاتف","إجراء"]:["الاسم","الهاتف"]):(isAdmin()?["الاسم","إجراء"]:["الاسم"]),rows)}}
 function refreshSaleOptions(){const fill=(id,items,field)=>$(id).innerHTML=items.map(x=>{const v=typeof x==="string"?x:(x[field]||x.name||x.nom);return '<option value="'+esc(v)+'">'+esc(v)+'</option>'}).join("");fill("saleZone",state.data.zones);fill("saleSupplier",state.data.fournisseurs,"nom");fill("saleEmployee",state.data.employes);if(!$("saleLines").children.length)addSaleLine()}
 function addSaleLine(){const row=document.createElement("div");row.className="sale-line";row.innerHTML='<select class="line-product" required>'+state.data.produits.map(p=>'<option value="'+esc(p.nom)+'" data-price="'+Number(p.prix||0)+'">'+esc(p.nom)+' — '+esc(p.stock)+' متوفر</option>').join("")+'</select><input class="line-qty" type="number" min="0.01" step="0.01" placeholder="الكمية" required><input class="line-price" type="number" min="0" step="0.01" placeholder="الثمن" '+(isAdmin()?'':'readonly')+'><button type="button" class="danger remove-line">×</button>';row.querySelector(".line-product").addEventListener("change",()=>{row.querySelector(".line-price").value=row.querySelector(".line-product").selectedOptions[0]?.dataset.price||0;calcTotal()});row.querySelector(".line-qty").addEventListener("input",calcTotal);row.querySelector(".line-price").addEventListener("input",calcTotal);row.querySelector(".remove-line").onclick=()=>{row.remove();calcTotal()};$("saleLines").append(row);row.querySelector(".line-product").dispatchEvent(new Event("change"))}
@@ -56,7 +75,7 @@ $("mainNav").addEventListener("click",e=>{const b=e.target.closest("[data-page]"
 document.addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b)go(b.dataset.go);const edit=e.target.closest("[data-edit-product]");if(edit)editProduct(edit.dataset.editProduct);const del=e.target.closest("[data-delete]");if(del)deleteItem(del)});
 function exportHistoryCSV(){
   const rows=[["التاريخ","رقم الفاتورة","النوع","الموظف","المورد","المنطقة","المنتج","الوحدة","الكمية","ثمن الوحدة","المجموع","الأداء"]];
-  const operations=[...state.data.operations].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const operations=[...getFilteredOperations()].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   for(const x of operations)rows.push([
     x.date,x.factureId,x.type==="achat"?"شراء":"بيع",x.employe||"",x.fournisseur||"",x.zone||"",
     x.produit,x.unite||"",x.quantite,x.prix,x.total,x.paiement||""
@@ -71,7 +90,7 @@ function exportHistoryCSV(){
   document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
   toast("تم تجهيز ملف العمليات");
 }
-$("exportHistoryBtn").addEventListener("click",exportHistoryCSV);$("productSearch").addEventListener("input",renderProducts);$("addSaleLine").onclick=addSaleLine;$("saleType").onchange=updateSaleType;
+$("exportHistoryBtn").addEventListener("click",exportHistoryCSV);["historySearch","historyType","historyFrom","historyTo"].forEach(id=>$(id).addEventListener("input",renderHistory));$("clearHistoryFilters").addEventListener("click",()=>{["historySearch","historyType","historyFrom","historyTo"].forEach(id=>$(id).value="");renderHistory()});$("productSearch").addEventListener("input",renderProducts);$("addSaleLine").onclick=addSaleLine;$("saleType").onchange=updateSaleType;
 $("addProductBtn").onclick=async()=>{const name=prompt("اسم المنتج");if(!name?.trim())return;const unit=prompt("الوحدة (مثلاً kg, pièce)")||"";const price=Number(prompt("ثمن البيع")||0);const stock=Number(prompt("المخزون الأولي")||0);if(!Number.isFinite(price)||price<0||!Number.isFinite(stock)||stock<0)return toast("المعطيات غير صحيحة");try{await api("/admin/products",{method:"POST",body:JSON.stringify({name,unit,price,stock})});await loadState();toast("تمت إضافة المنتج")}catch(e){toast(e.message)}};
 $("addEmployeeBtn").onclick=()=>addNamed("employees");$("addZoneBtn").onclick=()=>addNamed("zones");$("addSupplierBtn").onclick=()=>addNamed("suppliers");
 $("saleForm").addEventListener("submit",async e=>{e.preventDefault();const type=$("saleType").value;const rows=[...document.querySelectorAll(".sale-line")];const lines=rows.map(r=>({product:r.querySelector(".line-product").value,quantity:Number(r.querySelector(".line-qty").value),price:Number(r.querySelector(".line-price").value)}));if(!lines.length||lines.some(x=>!x.product||!Number.isFinite(x.quantity)||x.quantity<=0))return toast("تأكد من تفاصيل المنتجات");const payload={type,date:$("saleDate").value,lines,zone:$("saleZone").value,supplier:$("saleSupplier").value,employeeName:$("saleEmployee").value,payment:$("salePayment").value};try{await api("/sales",{method:"POST",body:JSON.stringify(payload)});$("saleLines").innerHTML="";addSaleLine();await loadState();toast("تسجلات العملية بنجاح");go("history")}catch(err){toast(err.message)}});

@@ -2,6 +2,17 @@
 const state = { operations: [], employes: [], zones: [], produits: [], fournisseurs: [], panier: [] };
 let userRole = '';
 let currentUser = '';
+
+// صلاحيات الواجهة: الحماية هنا تمنع الاستدعاء المباشر من واجهة الموظف.
+// الحماية النهائية للبيانات خاصها كذلك Firestore Security Rules.
+function requireAdminAccess(action = 'هاد العملية') {
+    if (userRole !== 'admin' || !window.firebaseAuth?.currentUser) {
+        showToast('⛔ غير Admin يقدر يدير: ' + action, '#ef4444');
+        return false;
+    }
+    return true;
+}
+
 let chartTopHome = null;
 const employesInitiaux = ['HICHAM', 'RIDA', 'ABD ELRAZAK', 'HAMZA KOWAY', 'YOUSSEF BEN JOUHRA', 'YOUSSEF LKHIYAT', 'ABD ELHAQ', 'OUSSAMA', 'TRIPORTEUR', 'TALAL', 'YOUSSEF LMGHARTI', 'ABD ELKODOUSS'];
 const zonesInitiales = ['EL GANTEUR', 'LMNABHA', 'PARCK 44', 'CHOUITER', 'RASS EL AIN'];
@@ -660,6 +671,11 @@ function generateMonths() {
 
 // ============== NAV ==============
 function showPage(pageId) {
+    const adminPages = new Set(['credits', 'produits', 'employes', 'zones', 'fournisseurs', 'bilan']);
+    if (adminPages.has(pageId) && !requireAdminAccess('فتح هاد الصفحة')) {
+        showPage('accueil');
+        return;
+    }
     if (window.innerWidth <= 768) {
         document.getElementById('sidebar')?.classList.remove('active');
     }
@@ -794,6 +810,10 @@ function toggleTypeOperation() {
     }
 }
 function validerFacture(e) {
+    if (userRole !== 'admin' && userRole !== 'employe') {
+        showToast('⛔ خاصك تسجل الدخول قبل تسجيل أي عملية', '#ef4444');
+        return;
+    }
     e.preventDefault();
 
     if (!state.panier.length) {
@@ -804,6 +824,11 @@ function validerFacture(e) {
     const type = document.getElementById('opType')?.value;
     const date = document.getElementById('opDate')?.value;
     const mois = document.getElementById('opMois')?.value;
+
+    if (userRole === 'employe' && type === 'achat') {
+        showToast('⛔ حساب الموظف مسموح ليه غير بتسجيل البيع', '#ef4444');
+        return;
+    }
 
     if (!['vente', 'achat'].includes(type) || !date) {
         showToast('⚠️ اختار نوع العملية والتاريخ', '#f59e0b');

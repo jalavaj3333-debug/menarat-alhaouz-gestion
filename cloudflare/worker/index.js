@@ -198,8 +198,9 @@ async function handle(request, env) {
     for (const line of data.lines) {
       const name = clean(line.product, 120), product = productMap.get(name.toLocaleLowerCase("en")), quantity = Number(line.quantity);
       const price = type === "vente" ? Number(product.price) : Number(line.price);
-      if (!Number.isFinite(price) || price < 0) return json({ error: "Invalid unit price" }, 400);
-      lines.push({ name, unit: product.unit || "", quantity, price, total: quantity * price });
+      const total = quantity * price;
+      if (!Number.isFinite(price) || price < 0 || !Number.isFinite(total)) return json({ error: "Invalid unit price or line total" }, 400);
+      lines.push({ name, unit: product.unit || "", quantity, price, total });
     }
     const invoiceId = crypto.randomUUID();
     const invoiceRef = clean(data.invoiceRef || ("FAC-" + Date.now()), 80);

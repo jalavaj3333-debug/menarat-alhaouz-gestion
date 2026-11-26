@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS products (
   unit TEXT NOT NULL DEFAULT '',
   price REAL NOT NULL DEFAULT 0 CHECK (price >= 0),
   opening_stock REAL NOT NULL DEFAULT 0,
+  current_stock REAL NOT NULL DEFAULT 0,
   supplier_name TEXT NOT NULL DEFAULT '',
   active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
   legacy_json TEXT

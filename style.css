@@ -680,3 +680,69 @@ body.dark-mode .sidebar-link.active { background: rgba(96, 165, 250, .14); color
         transition-duration: .01ms !important;
     }
 }
+
+
+/* ============== MENARAT PRO: visual polish ============== */
+:root {
+    --brand-primary: #2563eb;
+    --brand-deep: #1e40af;
+    --surface-soft: #f1f5f9;
+}
+.login-container {
+    background:
+        radial-gradient(circle at 15% 20%, rgba(59,130,246,.22), transparent 34%),
+        radial-gradient(circle at 85% 80%, rgba(16,185,129,.16), transparent 30%),
+        linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+    padding: 20px;
+}
+.login-box {
+    max-width: 430px;
+    padding: 2.2rem;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,.7);
+    box-shadow: 0 24px 70px rgba(2,6,23,.28);
+}
+.login-box h2 { color: var(--text-main); letter-spacing: .2px; }
+.login-box input {
+    min-height: 42px;
+    border-radius: 9px;
+    padding: 10px 12px;
+    transition: border-color .2s, box-shadow .2s;
+}
+.login-box input:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.13);
+}
+.login-box button {
+    min-height: 42px;
+    border-radius: 9px;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.login-box button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 7px 16px rgba(37,99,235,.18);
+}
+.card {
+    border-radius: 14px;
+    box-shadow: 0 3px 12px rgba(15,23,42,.035);
+    transition: box-shadow .2s ease, border-color .2s ease;
+}
+.card:hover { box-shadow: 0 7px 20px rgba(15,23,42,.07); }
+.table tbody tr:nth-child(even) { background: rgba(148,163,184,.055); }
+.table tbody tr:hover { background: rgba(59,130,246,.055); }
+button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 3px solid rgba(59,130,246,.35);
+    outline-offset: 2px;
+}
+@media (max-width: 480px) {
+    .login-box { padding: 1.4rem; max-width: 100%; }
+    .login-box h2 { font-size: 1.25rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+}

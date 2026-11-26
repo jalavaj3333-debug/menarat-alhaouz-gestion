@@ -182,10 +182,9 @@ async function handle(request, env) {
       env.DB.prepare("SELECT id, name FROM employees WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM zones WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name AS nom, phone AS tel FROM suppliers WHERE active=1 ORDER BY name").all(),
-      env.DB.prepare("SELECT i.*, l.id AS line_id, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id ORDER BY i.operation_date DESC").all()
+      env.DB.prepare("SELECT i.*, l.id AS line_id, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id WHERE (? = 'admin' OR i.employee_user_id = ?) ORDER BY i.operation_date DESC").bind(user.role, user.id).all()
     ]);
-    const visibleInvoices = user.role === "admin" ? (invoices.results || []) : (invoices.results || []).filter(row => row.employee_user_id === user.id);
-    const operations = visibleInvoices.filter(row => row.produit).map(row => ({
+    const operations = (invoices.results || []).filter(row => row.produit).map(row => ({
       id: row.line_id, factureId: row.id, invoiceRef: row.invoice_ref, date: row.operation_date, type: row.type,
       employe: row.employee_name, fournisseur: row.supplier_name, zone: row.zone_name,
       paiement: row.payment_status, produit: row.produit, unite: row.unite,

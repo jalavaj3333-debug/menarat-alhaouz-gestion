@@ -280,6 +280,23 @@ async function handle(request, env) {
       }
       return json({ ok: true, id: newId }, 201);
     }
+    if (request.method === "PUT" && resource === "products" && id) {
+      const data = await body(request);
+      const name = clean(data.name, 120);
+      const unit = clean(data.unit, 20);
+      const supplierName = clean(data.supplier_name, 120);
+      const price = Number(data.price);
+      if (!name || !Number.isFinite(price) || price < 0) {
+        return json({ error: "اسم المنتج والثمن غير صحيحين" }, 400);
+      }
+      const result = await env.DB.prepare(
+        "UPDATE products SET name=?,unit=?,price=?,supplier_name=? WHERE id=? AND active=1"
+      ).bind(name, unit, price, supplierName, id).run();
+      if (Number(result.meta?.changes || 0) !== 1) {
+        return json({ error: "المنتج غير موجود أو لم يتم تعديله" }, 404);
+      }
+      return json({ ok: true });
+    }
     if (request.method === "DELETE" && id) {
       if (resource === "employees") {
         const employee = await env.DB.prepare("SELECT user_id FROM employees WHERE id=?").bind(id).first();

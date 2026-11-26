@@ -1495,9 +1495,59 @@ function exportPDFGlobal() {
 }
 
 // ============== AUTRES ==============
-function renderCredits() { const tbody = document.getElementById('tbodyCredits'); if (!tbody) return; const credits = state.operations.filter(o => o.type === 'vente' && o.paiement === 'Crédit').sort((a,b)=>new Date(b.date)-new Date(a.date)); tbody.innerHTML = credits.length ? credits.map((op) => `<tr><td>${op.date}</td><td>${op.employe}</td><td>${op.produit}</td><td>${op.quantite}</td><td><strong style="color:#ef4444">${parseFloat(op.total).toFixed(2)} DH</strong></td><td><button class="btn-action btn-primary" onclick="payerCredit('${op.id}')" style="padding:4px 8px; font-size:12px;">💸 Payer</button></td></tr>`).join('') : '<tr><td colspan="6" style="text-align:center; padding:20px;">لا توجد ديون</td></tr>'; }
-function payerCredit(id) {
-    if (!requireAdminAccess('تسوية دين')) return; if (!confirm('هل تم استلام المبلغ؟')) return; const op = state.operations.find(o => o.id === id); if (op) { op.paiement = 'Payé'; saveState(); renderAll(); } }
+function getCreditInvoices() {
+    const pending = state.operations.filter(op => op.type === 'vente' && op.paiement === 'Crédit');
+    const invoices = new Map();
+    pending.forEach(op => {
+        // العمليات القديمة بلا factureId تبقى منفصلة حتى لا نجمع فواتير مختلفة بالخطأ.
+        const key = op.factureId || op.id;
+        if (!invoices.has(key)) invoices.set(key, { key, factureId: op.factureId || op.id, date: op.date || '-', employe: op.employe || '-', operations: [], total: 0 });
+        const invoice = invoices.get(key);
+        invoice.operations.push(op);
+        invoice.total += Number(op.total) || 0;
+    });
+    return [...invoices.values()].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+function renderCredits() {
+    const tbody = document.getElementById('tbodyCredits');
+    if (!tbody) return;
+    const invoices = getCreditInvoices();
+    const totalDebt = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
+    const rows = invoices.map(invoice => {
+        const reference = String(invoice.factureId).replace(/[&<>"']/g, '');
+        return `<tr>
+            <td><strong>${reference}</strong></td>
+            <td>${invoice.date}</td>
+            <td>${invoice.employe}</td>
+            <td>${invoice.operations.length}</td>
+            <td><strong style="color:#dc2626">${invoice.total.toFixed(2)} DH</strong></td>
+            <td><button class="btn-action btn-primary" onclick="payerCredit('${invoice.key}')" style="padding:6px 10px;font-size:12px;">💸 تسوية الفاتورة</button></td>
+        </tr>`;
+    }).join('');
+    const summary = invoices.length
+        ? `<tr class="credits-total-row"><td colspan="4"><strong>مجموع الديون المتبقية (${invoices.length} فواتير)</strong></td><td colspan="2"><strong>${totalDebt.toFixed(2)} DH</strong></td></tr>`
+        : '';
+    tbody.innerHTML = rows
+        ? rows + summary
+        : '<tr><td colspan="6" style="text-align:center;padding:24px;">لا توجد ديون غير مسددة</td></tr>';
+}
+async function payerCredit(id) {
+    if (!requireAdminAccess('تسوية دين')) return;
+    const invoice = getCreditInvoices().find(item => item.key === id);
+    if (!invoice) {
+        showToast('⚠️ هاد الدين ما بقاش موجود أو تسوى من قبل', '#f59e0b');
+        return;
+    }
+    const confirmed = confirm(`تأكيد استلام ${invoice.total.toFixed(2)} DH وتسوية الفاتورة ${invoice.factureId}؟`);
+    if (!confirmed) return;
+    const targetIds = new Set(invoice.operations.map(op => op.id));
+    state.operations.forEach(op => {
+        if (targetIds.has(op.id)) op.paiement = 'Payé';
+    });
+    await saveState();
+    renderAll();
+    showToast('✅ تسوات الفاتورة كاملة بنجاح', '#10b981');
+}
 
 function renderEmployes() { 
     const t = document.getElementById('tbodyEmployes'); 

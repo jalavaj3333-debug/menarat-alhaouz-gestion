@@ -148,7 +148,7 @@ function switchLoginType(type) {
     const roleSelector = document.getElementById('loginRole');
     if (roleSelector) roleSelector.value = loginType;
     document.getElementById('formAdmin').style.display = loginType === 'admin' ? 'block' : 'none';
-    document.getElementById('formEmploye').style.display = loginType === 'employe' ? 'block' : 'none';
+    document.getElementById('loginFormEmploye').style.display = loginType === 'employe' ? 'block' : 'none';
     document.getElementById('loginError').style.display = 'none';
 }
 
@@ -202,7 +202,7 @@ async function checkEmployeLogin() {
         return;
     }
 
-    const button = document.querySelector('#formEmploye button');
+    const button = document.querySelector('#loginFormEmploye button');
     const oldText = button?.textContent;
     if (button) { button.disabled = true; button.textContent = '⏳ جاري التحقق...'; }
 

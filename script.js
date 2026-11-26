@@ -214,7 +214,15 @@ async function checkEmployeLogin() {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
         const userEmail = (userCredential.user.email || email).toLowerCase();
-        const nomEmploye = userEmail.split('@')[0].toUpperCase();
+        const emailPrefix = userEmail.split('@')[0].toUpperCase();
+        // الحفاظ على أسماء الموظفين المعروفة المستعملة سابقاً في العمليات.
+        const employeNamesByEmailPrefix = {
+            'HICHAMELMOUDALI': 'HICHAM',
+            'RIDABOUR': 'RIDA',
+            'HAMZAKOWAY': 'HAMZA KOWAY',
+            'YOUSSEF': 'YOUSSEF LKHIYAT'
+        };
+        const nomEmploye = employeNamesByEmailPrefix[emailPrefix] || emailPrefix;
 
         if (!state.employes.includes(nomEmploye)) {
             state.employes.push(nomEmploye);

@@ -33,7 +33,7 @@ function getFilteredOperations(){
     const date=String(x.date||"");
     if(from&&date<from)return false;
     if(to&&date>to)return false;
-    const haystack=[x.factureId,x.produit,x.employe,x.fournisseur,x.zone].join(" ").toLocaleLowerCase();
+    const haystack=[x.invoiceRef,x.factureId,x.produit,x.employe,x.fournisseur,x.zone].join(" ").toLocaleLowerCase();
     return !q||haystack.includes(q);
   }).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
 }
@@ -41,7 +41,7 @@ function renderHistory(){
   const ops=getFilteredOperations();
   const total=ops.reduce((sum,x)=>sum+(Number(x.total)||0),0);
   $("historySummary").textContent=ops.length+" سطر من العمليات — المجموع: "+money(total);
-  $("historyTable").innerHTML=table(["التاريخ","رقم الفاتورة","النوع","الموظف / المورد","المنطقة","المنتج","الكمية","المجموع"],ops.map(x=>'<tr><td>'+esc(x.date)+'</td><td>'+esc(x.factureId)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.employe||x.fournisseur||"—")+'</td><td>'+esc(x.zone||"—")+'</td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td></tr>'));
+  $("historyTable").innerHTML=table(["التاريخ","رقم الفاتورة","النوع","الموظف / المورد","المنطقة","المنتج","الكمية","المجموع"],ops.map(x=>'<tr><td>'+esc(x.date)+'</td><td>'+esc(x.invoiceRef||x.factureId)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.employe||x.fournisseur||"—")+'</td><td>'+esc(x.zone||"—")+'</td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td></tr>'));
 }
 function renderNamedLists(){const cfg=[["employeesTable",state.data.employes,"employees"],["zonesTable",state.data.zones,"zones"],["suppliersTable",state.data.fournisseurs,"suppliers"]];for(const [id,items,resource] of cfg){const rows=items.map(x=>{const name=x.nom||x.name||x;const id=typeof x==="object"?x.id:"";return '<tr><td>'+esc(name)+'</td><td>'+(resource==="suppliers"?esc(x.tel||x.phone||"—"):"")+'</td>'+(isAdmin()?'<td><button class="danger" data-delete="'+resource+'" data-id="'+esc(id)+'">تعطيل</button></td>':"")+'</tr>'});$(id).innerHTML=table(resource==="suppliers"?(isAdmin()?["الاسم","الهاتف","إجراء"]:["الاسم","الهاتف"]):(isAdmin()?["الاسم","إجراء"]:["الاسم"]),rows)}}
 function refreshSaleOptions(){const fill=(id,items,field)=>$(id).innerHTML=items.map(x=>{const v=typeof x==="string"?x:(x[field]||x.name||x.nom);return '<option value="'+esc(v)+'">'+esc(v)+'</option>'}).join("");fill("saleZone",state.data.zones);fill("saleSupplier",state.data.fournisseurs,"nom");fill("saleEmployee",state.data.employes);if(!$("saleLines").children.length)addSaleLine()}
@@ -77,7 +77,7 @@ function exportHistoryCSV(){
   const rows=[["التاريخ","رقم الفاتورة","النوع","الموظف","المورد","المنطقة","المنتج","الوحدة","الكمية","ثمن الوحدة","المجموع","الأداء"]];
   const operations=[...getFilteredOperations()].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   for(const x of operations)rows.push([
-    x.date,x.factureId,x.type==="achat"?"شراء":"بيع",x.employe||"",x.fournisseur||"",x.zone||"",
+    x.date,x.invoiceRef||x.factureId,x.type==="achat"?"شراء":"بيع",x.employe||"",x.fournisseur||"",x.zone||"",
     x.produit,x.unite||"",x.quantite,x.prix,x.total,x.paiement||""
   ]);
   const csv="\uFEFF"+rows.map(row=>row.map(value=>'"'+String(value??"").replace(/"/g,'""')+'"').join(";")).join("\r\n");

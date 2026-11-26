@@ -144,13 +144,11 @@ function showToast(msg, color = '#10b981') {
 // ============== LOGIN ==============
 let loginType = 'admin'; 
 function switchLoginType(type) {
-    loginType = type;
-    document.getElementById('btnAdmin').style.background = type === 'admin' ? '#3b82f6' : '#e2e8f0';
-    document.getElementById('btnAdmin').style.color = type === 'admin' ? 'white' : '#333';
-    document.getElementById('btnEmploye').style.background = type === 'employe' ? '#3b82f6' : '#e2e8f0';
-    document.getElementById('btnEmploye').style.color = type === 'employe' ? 'white' : '#333';
-    document.getElementById('formAdmin').style.display = type === 'admin' ? 'block' : 'none';
-    document.getElementById('formEmploye').style.display = type === 'employe' ? 'block' : 'none';
+    loginType = type === 'employe' ? 'employe' : 'admin';
+    const roleSelector = document.getElementById('loginRole');
+    if (roleSelector) roleSelector.value = loginType;
+    document.getElementById('formAdmin').style.display = loginType === 'admin' ? 'block' : 'none';
+    document.getElementById('formEmploye').style.display = loginType === 'employe' ? 'block' : 'none';
     document.getElementById('loginError').style.display = 'none';
 }
 

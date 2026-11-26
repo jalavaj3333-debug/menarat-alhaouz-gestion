@@ -774,3 +774,32 @@ body::before {
         opacity: 0.045;
     }
 }
+
+
+/* FIX: show the logo watermark on the login overlay itself */
+.login-container {
+    isolation: isolate;
+    overflow: hidden;
+}
+.login-container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: url("./logo.png");
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: min(48vw, 460px) auto;
+    opacity: 0.16;
+}
+.login-box {
+    position: relative;
+    z-index: 1;
+}
+@media (max-width: 600px) {
+    .login-container::before {
+        background-size: min(78vw, 320px) auto;
+        opacity: 0.13;
+    }
+}

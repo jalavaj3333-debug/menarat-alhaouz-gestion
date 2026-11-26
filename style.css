@@ -1095,3 +1095,24 @@ body.dark-mode .sidebar { background: linear-gradient(180deg, #0b1428, #111f3b 7
 
 /* Keep the password dialog hidden until explicitly opened */
 .change-password-modal[hidden] { display: none !important; }
+
+
+/* Smart inventory dashboard */
+.stock-insights { background:linear-gradient(145deg,#fff,#f7faff); border:1px solid #e2e8f0; border-radius:18px; padding:22px; margin:0 0 22px; box-shadow:0 12px 30px rgba(15,23,42,.06); }
+.stock-insights-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
+.stock-insights-heading h2 { margin:5px 0; color:#172b4d; font-size:21px; }
+.stock-insights-heading p { margin:0; color:#64748b; font-size:13px; }
+.stock-insights-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:20px; }
+.stock-insights-metrics article { display:grid; grid-template-columns:auto 1fr; align-items:center; column-gap:10px; padding:15px; border:1px solid #e5eaf2; border-radius:13px; background:#fff; }
+.stock-insights-metrics article span { grid-row:span 2; font-size:23px; }
+.stock-insights-metrics small { color:#64748b; font-size:12px; }
+.stock-insights-metrics strong { color:#172b4d; font-size:19px; overflow-wrap:anywhere; }
+.stock-insights-table-title { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.stock-insights-table-title h3 { margin:0; font-size:16px; color:#172b4d; }
+.stock-insights-table-title span { color:#64748b; font-size:12px; }
+.stock-status { display:inline-block; padding:5px 9px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
+.stock-status-low { color:#92400e; background:#fef3c7; }
+.stock-status-empty { color:#991b1b; background:#fee2e2; }
+.stock-insights-empty { text-align:center; padding:20px !important; color:#15803d; font-weight:600; }
+@media(max-width:800px) { .stock-insights-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .stock-insights-heading { align-items:flex-start; flex-direction:column; } }
+@media(max-width:420px) { .stock-insights { padding:14px; } .stock-insights-metrics article { padding:10px; } .stock-insights-metrics strong { font-size:16px; } }

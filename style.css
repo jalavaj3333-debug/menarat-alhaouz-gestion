@@ -788,7 +788,7 @@ body::before {
     height: 100vh !important;
     min-height: 100dvh !important;
     box-sizing: border-box !important;
-    display: flex !important;
+    /* display is controlled by the login flow's inline style */
     justify-content: center !important;
     align-items: center !important;
     isolation: isolate;

@@ -1448,49 +1448,75 @@ function openAddUserFirebase() {
 }
 
 async function addUserToFirebase(email, password) {
-    // كنحفظو معلومات الأدمن الحالي باش نرجعوه من بعد
-    const currentAdminEmail = window.firebaseAuth.currentUser?.email;
-    const currentAdminPass = prompt("عافاك أدخل كلمة السر ديالك (ديال الأدمن) باش نتأكدو أنك نتا:"); 
-    // ⚠️ هادشي ماشي آمن 100%، ولكن هو الحل الوحيد بلا سيرفر.
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
-    if (!currentAdminPass) {
-        showToast('⚠️ خاصك تدخل كلمة السر ديالك باش تكمل', '#ef4444');
+    // حماية الواجهة: إضافة الحسابات متاحة للأدمن المسجل فقط.
+    if (userRole !== 'admin' || !window.firebaseAuth?.currentUser) {
+        showToast('❌ خاصك تدخل بحساب Admin باش تزيد حساب موظف', '#ef4444');
         return;
     }
 
-    try {
-        const { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } = await import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js");
-        
-        // 1. نزيدو المستخدم الجديد (هنا غادي يخرجنا من حساب الأدمن)
-        await createUserWithEmailAndPassword(window.firebaseAuth, email, password);
-        showToast('✅ تزاد المستخدم فـ Firebase!', '#10b981');
-        
-        // 2. نرجعو ندخلو الأدمن (باش التطبيق يبقى خدام)
-        if (currentAdminEmail) {
-            await signInWithEmailAndPassword(window.firebaseAuth, currentAdminEmail, currentAdminPass);
-        }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        showToast('⚠️ البريد الإلكتروني غير صالح', '#f59e0b');
+        return;
+    }
 
-        // 3. نزيدو السمية فـ اللائحة ديال الموظفين (باش يبان فـ التطبيق)
-        const nom = email.split('@')[0].toUpperCase();
+    if (typeof password !== 'string' || password.length < 6) {
+        showToast('⚠️ كلمة السر خاصها تكون 6 حروف على الأقل', '#f59e0b');
+        return;
+    }
+
+    let secondaryApp = null;
+
+    try {
+        const [{ initializeApp, deleteApp }, {
+            getAuth,
+            createUserWithEmailAndPassword
+        }] = await Promise.all([
+            import("https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js"),
+            import("https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js")
+        ]);
+
+        // حساب Firebase ثانوي: إنشاء الموظف بلا ما نخرجو Admin من جلسته الحالية.
+        secondaryApp = initializeApp(
+            window.firebaseAuth.app.options,
+            'menarat-employee-creator-' + Date.now()
+        );
+
+        const secondaryAuth = getAuth(secondaryApp);
+        await createUserWithEmailAndPassword(secondaryAuth, normalizedEmail, password);
+
+        const nom = normalizedEmail.split('@')[0].toUpperCase();
         if (!state.employes.includes(nom)) {
             state.employes.push(nom);
-            saveState();
+            await saveState();
             renderEmployes();
         }
-        
+
         showToast(`✅ تزاد الحساب ديال ${nom} بنجاح!`, '#10b981');
-        
     } catch (error) {
-        console.error(error);
+        console.error('خطأ فإضافة حساب الموظف:', error);
         if (error.code === 'auth/email-already-in-use') {
             showToast('❌ هاد الإيميل مسجل من قبل', '#ef4444');
         } else if (error.code === 'auth/weak-password') {
             showToast('❌ كلمة السر ضعيفة بزاف', '#ef4444');
+        } else if (error.code === 'auth/invalid-email') {
+            showToast('❌ البريد الإلكتروني غير صالح', '#ef4444');
         } else {
-            showToast('❌ خطأ: ' + error.message, '#ef4444');
+            showToast('❌ تعذر إنشاء الحساب: ' + (error.message || 'خطأ غير معروف'), '#ef4444');
+        }
+    } finally {
+        if (secondaryApp) {
+            try {
+                const { deleteApp } = await import("https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js");
+                await deleteApp(secondaryApp);
+            } catch (cleanupError) {
+                console.warn('تعذر إغلاق جلسة Firebase الثانوية:', cleanupError);
+            }
         }
     }
 }
+
 function deleteEmploye(i) { customConfirm('حذف؟').then(confirmed => { if (!confirmed) return; state.employes.splice(i, 1); saveState(); renderAll(); }); }
 
 function renderZones() { 

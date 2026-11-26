@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>Menarat Al Haouz — Cloudflare</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="loginView" class="login-shell">
+    <section class="login-card">
+      <div class="brand-mark">م</div>
+      <p class="eyebrow">MENARAT AL HAOUZ</p>
+      <h1>تسيير احترافي للمخزون والمبيعات</h1>
+      <p class="muted">النسخة الجديدة المستقلة — Cloudflare</p>
+      <form id="loginForm">
+        <label for="email">البريد الإلكتروني</label>
+        <input id="email" type="email" autocomplete="username" required placeholder="admin@example.com">
+        <label for="password">كلمة المرور</label>
+        <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••••••">
+        <button class="primary full" type="submit">تسجيل الدخول</button>
+        <p id="loginError" class="error" role="alert"></p>
+      </form>
+      <small class="muted">بيانات هذه النسخة منفصلة عن Firebase القديم.</small>
+    </section>
+  </div>
+
+  <div id="appView" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="side-brand"><span class="brand-mark small">م</span><div><b>MENARAT</b><small>AL HAOUZ</small></div></div>
+      <nav id="mainNav">
+        <button class="nav-item active" data-page="overview">▦ <span>الرئيسية</span></button>
+        <button class="nav-item" data-page="products">▤ <span>المنتجات والمخزون</span></button>
+        <button class="nav-item" data-page="sales">＋ <span>تسجيل عملية</span></button>
+        <button class="nav-item" data-page="history">▧ <span>الفواتير والعمليات</span></button>
+        <button class="nav-item admin-only" data-page="employees">♙ <span>الموظفون</span></button>
+        <button class="nav-item admin-only" data-page="zones">⌖ <span>المناطق</span></button>
+        <button class="nav-item admin-only" data-page="suppliers">▣ <span>الموردون</span></button>
+      </nav>
+      <div class="sidebar-bottom"><span class="status-dot"></span> اتصال آمن بالمنصة الجديدة</div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div><p class="eyebrow">ESPACE DE GESTION</p><h2 id="pageTitle">الرئيسية</h2></div>
+        <div class="user-area"><div><b id="userName">—</b><small id="userRole">—</small></div><button id="logoutBtn" class="ghost">خروج</button></div>
+      </header>
+
+      <section id="page-overview" class="page">
+        <div class="welcome"><div><p class="eyebrow">MENARAT AL HAOUZ</p><h1>مرحباً بك في فضاء التسيير</h1><p>لوحة متابعة المخزون والمبيعات والفواتير.</p></div><div class="welcome-icon">م</div></div>
+        <div class="stats-grid">
+          <article class="stat-card"><span>عدد المنتجات</span><strong id="statProducts">0</strong><small>منتج مسجل</small></article>
+          <article class="stat-card"><span>المخزون الحالي</span><strong id="statStock">0</strong><small>مجموع الكميات</small></article>
+          <article class="stat-card"><span>عمليات البيع</span><strong id="statSales">0</strong><small>فواتير البيع</small></article>
+          <article class="stat-card"><span>عمليات الشراء</span><strong id="statPurchases">0</strong><small>فواتير الشراء</small></article>
+        </div>
+        <div class="panel"><div class="panel-heading"><div><h3>آخر العمليات</h3><p>أحدث الحركات المسجلة في قاعدة البيانات</p></div><button class="outline" data-go="history">عرض الكل</button></div><div id="recentList" class="table-wrap"></div></div>
+      </section>
+
+      <section id="page-products" class="page hidden">
+        <div class="section-heading"><div><h3>المنتجات والمخزون</h3><p>إدارة المنتجات وتتبع الكميات المتوفرة</p></div><button id="addProductBtn" class="primary admin-only">＋ إضافة منتج</button></div>
+        <div class="toolbar"><input id="productSearch" placeholder="بحث عن منتج..."></div><div class="panel table-wrap" id="productsTable"></div>
+      </section>
+
+      <section id="page-sales" class="page hidden">
+        <div class="section-heading"><div><h3>تسجيل عملية جديدة</h3><p>تسجيل بيع أو شراء مع التحقق من المخزون</p></div></div>
+        <div class="panel form-panel"><form id="saleForm" class="form-grid">
+          <div><label>نوع العملية</label><select id="saleType"><option value="vente">بيع</option><option value="achat" class="admin-only">شراء</option></select></div>
+          <div><label>التاريخ</label><input id="saleDate" type="date" required></div>
+          <div id="zoneField"><label>المنطقة</label><select id="saleZone" required></select></div>
+          <div id="supplierField" class="hidden"><label>المورد</label><select id="saleSupplier"></select></div>
+          <div id="employeeField" class="hidden"><label>الموظف</label><select id="saleEmployee"></select></div>
+          <div><label>حالة الأداء</label><select id="salePayment"><option>Payé</option><option>Crédit</option><option>Partiel</option></select></div>
+          <div class="wide"><h4>تفاصيل المنتجات</h4><div id="saleLines"></div><button type="button" id="addSaleLine" class="outline">＋ إضافة سطر</button></div>
+          <div class="wide total-line"><span>المجموع التقديري</span><strong id="saleTotal">0.00 DH</strong></div>
+          <div class="wide"><button class="primary" type="submit">حفظ العملية</button><p id="saleMessage" class="muted"></p></div>
+        </form></div>
+      </section>
+
+      <section id="page-history" class="page hidden"><div class="section-heading"><div><h3>الفواتير والعمليات</h3><p>سجل جميع حركات البيع والشراء</p></div></div><div class="panel table-wrap" id="historyTable"></div></section>
+      <section id="page-employees" class="page hidden"><div class="section-heading"><div><h3>الموظفون</h3><p>إدارة أسماء الموظفين</p></div><button class="primary" id="addEmployeeBtn">＋ إضافة موظف</button></div><div class="panel table-wrap" id="employeesTable"></div></section>
+      <section id="page-zones" class="page hidden"><div class="section-heading"><div><h3>المناطق</h3><p>إدارة مناطق العمل</p></div><button class="primary" id="addZoneBtn">＋ إضافة منطقة</button></div><div class="panel table-wrap" id="zonesTable"></div></section>
+      <section id="page-suppliers" class="page hidden"><div class="section-heading"><div><h3>الموردون</h3><p>إدارة الموردين وأرقام التواصل</p></div><button class="primary" id="addSupplierBtn">＋ إضافة مورد</button></div><div class="panel table-wrap" id="suppliersTable"></div></section>
+      <footer>MENARAT AL HAOUZ · CLOUDflare EDITION</footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="./app.js" defer></script>
+</body>
+</html>

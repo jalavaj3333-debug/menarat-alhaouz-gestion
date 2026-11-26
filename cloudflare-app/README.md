@@ -1,25 +1,27 @@
 # Menarat Al Haouz — Cloudflare edition
 
-This folder is a separate frontend for the new Cloudflare edition. It does not import Firebase SDKs, does not connect to Firebase, and does not migrate or modify any Firebase data.
+This folder is a separate frontend for the new Cloudflare edition. It does not load Firebase SDKs, connect to Firebase, or read, import, copy, or modify Firebase data.
 
-## Current connection contract
-- Frontend calls same-origin endpoints under `/api`.
-- The Cloudflare Worker must be routed on the same hostname under `/api/*` so the secure session cookie works reliably.
-- The Worker requires a NEW D1 database and bindings documented in `../DEPLOYMENT.md`.
-- The frontend is not production-ready until the Worker, Pages routing, database, admin bootstrap, and end-to-end workflows are configured and tested.
+## Architecture
+- Cloudflare Pages serves this frontend.
+- Cloudflare Worker handles authentication, authorization, validation, and API requests.
+- A completely new Cloudflare D1 database stores this edition's data.
+- The frontend calls same-origin endpoints under `/api`; route the Worker on the same hostname under `/api/*` so secure session cookies work correctly.
 
 ## Implemented in this UI
-- Admin/employee login against the Cloudflare Worker.
-- Role-aware navigation.
-- Dashboard counts, product listing, operation history.
-- Admin product/employee/zone/supplier creation.
-- Sale/purchase form using server-side validation.
+- Admin and employee login through the Cloudflare Worker.
+- Role-aware navigation and server-enforced permissions.
+- Dashboard counts, product listing/search, and operation history.
+- Admin creation/deactivation of products, employee accounts, zones, and suppliers.
+- Sale and purchase form with server-side price and stock validation.
+- Local-date default for new operations.
 
-## Known backend gaps before release
-- Employee account creation and linking to employee records.
-- Product editing, robust deletion confirmation by stable IDs for all resource types.
-- Invoice grouping/details, reports, returns/credit workflows, payment tracking.
-- Rate limiting, audit log, security review, automated tests.
-- The Worker must be reviewed for transactional/atomic invoice writes before production.
+## Not ready for production yet
+- The Worker, Pages routing, new D1 database, and first admin account have not been configured/deployed.
+- Product editing and password change/reset are not implemented.
+- Invoice grouping/detail screens, reports, returns, credit settlement, and payment tracking need implementation.
+- Login rate limiting / Turnstile, audit logging, automated tests, and a security review are still required.
+- Browser end-to-end tests must pass on a staging URL before release.
 
-Do not point this frontend at Firebase. Do not deploy against or reuse the old Firebase data.
+## Data separation
+The new D1 database is intended to start empty. Do not connect this frontend to Firebase or reuse an existing database. The original Firebase application remains untouched and independent.

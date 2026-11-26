@@ -348,35 +348,8 @@ async function changePassword() {
 }
 
 // ============== BACKUP ==============
-function exportFullBackup() {
-    if (state.operations.length === 0 && state.produits.length === 0) { showToast('⚠️ لا توجد بيانات', '#f59e0b'); return; }
-    const backup = { version: '1.0', date: new Date().toISOString(), state: state };
-    const dataStr = JSON.stringify(backup, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url;
-    a.download = `Backup-Menarat-${new Date().toISOString().split('T')[0]}.json`; a.click();
-    URL.revokeObjectURL(url);
-    showToast('✅ تم تصدير النسخة الاحتياطية!');
-}
-function importFullBackup(e) {
-    const file = e.target.files[0]; if (!file) return;
-    if (!confirm('⚠️ سيتم استبدال كل البيانات. متأكد؟')) { e.target.value = ''; return; }
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        try {
-            const backup = JSON.parse(event.target.result);
-            if (!backup.state || !backup.state.operations) { showToast('❌ الملف غير صالح', '#ef4444'); e.target.value = ''; return; }
-            state.operations = backup.state.operations || []; state.employes = backup.state.employes || [];
-            state.zones = backup.state.zones || []; state.produits = backup.state.produits || [];
-            state.fournisseurs = backup.state.fournisseurs || []; state.panier = [];
-            saveState(); renderAll(); showPage('accueil');
-            showToast('✅ تم الاستيراد!');
-        } catch (err) { showToast('❌ خطأ: ' + err.message, '#ef4444'); }
-        e.target.value = '';
-    };
-    reader.readAsText(file);
-}
+
+
 
 // ============== EXPORT OPERATIONS CSV ==============
 function exportFullBackup() {
@@ -423,67 +396,14 @@ function exportOperationsCSV() {
     showToast(`✅ تم تصدير ${state.operations.length} عملية!`);
 }
 
-function toggleTheme() {
-    document.body.classList.toggle('dark-mode');
-    const btn = document.getElementById('themeBtn');
-    const isDark = document.body.classList.contains('dark-mode');
-    if (btn) btn.textContent = isDark ? '☀️' : '🌙';
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-}
-function editYear() {
-    const currentYear = document.getElementById('sidebarYear').textContent.replace('Gestion ', '');
-    const newYear = prompt('أدخل السنة الدراسية (مثلاً: 2026-2027):', currentYear);
-    if (newYear && newYear.trim() !== '') { 
-        document.getElementById('sidebarYear').textContent = 'Gestion ' + newYear.trim(); 
-        localStorage.setItem('menarat_year', newYear.trim()); 
-        generateMonths(); setTimeout(renderCharts, 100); 
-    }
-}
-function checkNotifs() {
-    const outOfStock = state.produits.filter(p => { 
-        const e = state.operations.filter(o => o.type === 'achat' && o.produit === p.nom).reduce((s, o) => s + parseFloat(o.quantite), 0); 
-        const s = state.operations.filter(o => o.type === 'vente' && o.produit === p.nom).reduce((s, o) => s + parseFloat(o.quantite), 0); 
-        return ((p.stockInitial || 0) + e - s) < 5; 
-    });
-    const badge = document.getElementById('notifBadge');
-    if (badge) { if (outOfStock.length > 0) { badge.style.display = 'inline'; badge.textContent = outOfStock.length; } else { badge.style.display = 'none'; } }
-}
-function showNotifs() {
-    const outOfStock = state.produits.filter(p => { 
-        const e = state.operations.filter(o => o.type === 'achat' && o.produit === p.nom).reduce((s, o) => s + parseFloat(o.quantite), 0); 
-        const s = state.operations.filter(o => o.type === 'vente' && o.produit === p.nom).reduce((s, o) => s + parseFloat(o.quantite), 0); 
-        return ((p.stockInitial || 0) + e - s) < 5; 
-    });
-    if (outOfStock.length > 0) alert('🔔 تنبيهات المخزون:\n\n' + outOfStock.map(p => `- ${p.nom}`).join('\n'));
-    else showToast('✅ كلشي مزيان!');
-}
 
-function generateMonths() {
-    const select = document.getElementById('opMois');
-    if (!select) return;
-    const yearStr = document.getElementById('sidebarYear').textContent.replace('Gestion ', '').trim();
-    let startYear = 2026;
-    if (yearStr.includes('-')) startYear = parseInt(yearStr.split('-')[0]);
-    else if (!isNaN(parseInt(yearStr))) startYear = parseInt(yearStr);
-    const moisNoms = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-    let options = '<option value="">-- اختر الشهر --</option>';
-    for (let i = 0; i < 12; i++) {
-        const monthIndex = (9 + i) % 12; 
-        const currentYear = startYear + Math.floor((9 + i) / 12);
-        const val = `${currentYear}-${String(monthIndex + 1).padStart(2, '0')}`;
-        options += `<option value="${val}">${moisNoms[monthIndex]} ${currentYear}</option>`;
-    }
-    select.innerHTML = options;
-}
 
-function updateSelect(id, items) { 
-    const s = document.getElementById(id); 
-    if (!s) return; 
-    const v = s.value; 
-    s.innerHTML = '<option value="">-- اختر --</option>'; 
-    items.forEach(i => { const o = document.createElement('option'); o.value = i; o.textContent = i; s.appendChild(o); }); 
-    if (items.includes(v)) s.value = v; 
-}
+
+
+
+
+
+
 
 // ============== IMPORT EXCEL STOCK ==============
 function importExcel(e) {
@@ -822,18 +742,7 @@ function renderAccueil() {
     renderTopProduitsHome();
     renderStatsAvancees();
 }
-function renderStatsAvancees() {
-    const today = new Date().toISOString().split('T')[0];
-    const moisActuel = today.substring(0, 7); 
 
-    const ventesAujourdhui = state.operations.filter(o => o.type === 'vente' && o.date === today).reduce((s, o) => s + parseFloat(o.total || 0), 0);
-    const ventesMois = state.operations.filter(o => o.type === 'vente' && o.date && o.date.startsWith(moisActuel)).reduce((s, o) => s + parseFloat(o.total || 0), 0);
-    const opsAujourdhui = state.operations.filter(o => o.date === today).length;
-
-    if (document.getElementById('statVentesJour')) document.getElementById('statVentesJour').textContent = ventesAujourdhui.toFixed(2) + ' DH';
-    if (document.getElementById('statVentesMois')) document.getElementById('statVentesMois').textContent = ventesMois.toFixed(2) + ' DH';
-    if (document.getElementById('statOpsJour')) document.getElementById('statOpsJour').textContent = opsAujourdhui;
-}
 
 // ============== CHART TOP PRODUITS ==============
 

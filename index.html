@@ -131,6 +131,23 @@
                     <div class="stat-card stat-orange"><h3>Opérations</h3><p id="statOperations">0</p></div>
                     <div class="stat-card stat-purple"><h3>Produits</h3><p id="statProduits">0</p></div>
                 </div>
+                <section class="stock-insights admin-only" aria-label="مركز مراقبة المخزون">
+                    <div class="stock-insights-heading">
+                        <div><span class="admin-eyebrow">SMART INVENTORY</span><h2>مركز مراقبة المخزون</h2><p>متابعة الكميات والقيمة والتنبيه قبل نفاد المنتجات</p></div>
+                        <button type="button" class="admin-action-primary" onclick="showPage('produits')">تدبير المنتجات ←</button>
+                    </div>
+                    <div class="stock-insights-metrics">
+                        <article><span>📦</span><small>عدد المنتجات</small><strong id="stockInsightProducts">0</strong></article>
+                        <article><span>⚠️</span><small>مخزون منخفض (≤ 5)</small><strong id="stockInsightLow">0</strong></article>
+                        <article><span>⛔</span><small>نفد المخزون</small><strong id="stockInsightEmpty">0</strong></article>
+                        <article><span>💰</span><small>قيمة المخزون التقديرية</small><strong id="stockInsightValue">0.00 DH</strong></article>
+                    </div>
+                    <div class="stock-insights-table-wrap">
+                        <div class="stock-insights-table-title"><h3>المنتجات التي تحتاج الانتباه</h3><span>الأقل كمية أولاً</span></div>
+                        <div class="table-container"><table class="table"><thead><tr><th>المنتج</th><th>المورد</th><th>المخزون الحالي</th><th>الثمن</th><th>الحالة</th></tr></thead><tbody id="stockInsightRows"><tr><td colspan="5">لا توجد بيانات بعد</td></tr></tbody></table></div>
+                    </div>
+                </section>
+
                 <div class="card">
                     <div class="stats-grid" style="margin-top: 20px;">
                     <div class="stat-card" style="background: #8b5cf6;"><h3>Ventes Aujourd'hui</h3><p id="statVentesJour">0.00 DH</p></div>

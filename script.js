@@ -1217,9 +1217,7 @@ function renderProduits() {
     }
     tbody.innerHTML = produitsFiltres.length ? produitsFiltres.map((p) => {
         const realIndex = state.produits.indexOf(p);
-        const e = state.operations.filter(o => o.type === 'achat' && o.produit === p.nom).reduce((s, o) => s + parseFloat(o.quantite), 0);
-        const s = state.operations.filter(o => o.type === 'vente' && o.produit === p.nom).reduce((s, o) => s + parseFloat(o.quantite), 0);
-        const stock = (p.stockInitial || 0) + e - s;
+        const stock = getCurrentProductStock(p);
         return `<tr>
             <td>${realIndex + 1}</td><td>${p.nom}</td><td>${p.unite || '-'}</td>
             <td>${parseFloat(p.prix || 0).toFixed(2)} DH</td>

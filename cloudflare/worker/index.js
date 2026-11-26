@@ -163,7 +163,7 @@ async function handle(request, env) {
     const type = data.type === "achat" ? "achat" : data.type === "vente" ? "vente" : "";
     if (!type || (type === "achat" && user.role !== "admin")) return json({ error: "Operation not permitted" }, 403);
     const date = clean(data.date, 10);
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || !Array.isArray(data.lines) || data.lines.length < 1 || data.lines.length > 100) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Array.isArray(data.lines) || data.lines.length < 1 || data.lines.length > 100) {
       return json({ error: "Invalid invoice data" }, 400);
     }
     const zone = type === "vente" ? clean(data.zone, 120) : "MAGASIN";

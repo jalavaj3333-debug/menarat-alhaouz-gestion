@@ -1,44 +1,36 @@
-# Menarat Al Haouz — Cloudflare migration workspace
+# Menarat Al Haouz — independent Cloudflare edition
 
-This directory is a **staging area** on the `cloudflare-migration` branch.
-The live frontend and Firebase configuration have not been changed.
+This directory is a development workspace on the `cloudflare-migration` branch. The existing application, Firebase Authentication, Firestore data, and production deployment must remain unchanged.
 
-## Current application findings
-
-- Firebase Authentication currently signs in the admin and employees.
-- The Firestore source is the single document `menarat/state`.
-- That document contains arrays: `operations`, `employes`, `zones`, `produits`, `fournisseurs`, and transient `panier`.
-- Each operation is a line item. Related lines share `factureId`; legacy operations may only have their own `id`.
-- Employee restrictions are mostly enforced in browser code today. They must be enforced again by the Worker on every write.
-- The old app's `saveState()` writes the entire shared object. Do not point it at a new backend until API authorization and concurrency-safe write operations exist.
+## User-approved architecture
+- Keep the existing Firebase edition exactly as it is.
+- Build a separate Cloudflare Pages + Worker + D1 application.
+- Create a brand-new D1 database that starts empty.
+- Do not export, import, copy, synchronize, or migrate any Firebase records or accounts.
+- Create new administrator and employee accounts for the Cloudflare edition.
+- Test the new edition on staging before considering any separate production release.
 
 ## Target architecture
-
-- Cloudflare Pages: static frontend.
+- Cloudflare Pages: static frontend in `cloudflare-app/`.
 - Cloudflare Worker: authentication, sessions, validation, authorization, and API.
-- Cloudflare D1: relational application data, with invoice headers and lines.
-- Worker secrets/bindings: no credentials or initial passwords in source control.
+- Cloudflare D1: independent relational database.
+- Worker secrets and bindings: no credentials or passwords committed to source control.
 
-## Migration safety rules
+## Implemented foundation
+- D1 schema for users, sessions, products, employees, zones, suppliers, invoices, and invoice lines.
+- Worker login/logout/session lookup and one-time initial-admin setup.
+- Authenticated state read with employee-specific operation filtering.
+- Server-validated sales and admin-only purchases, with stock checks and invoice writes.
+- Admin create/deactivate endpoints for products, employees, zones, and suppliers.
+- Separate Arabic RTL frontend in `cloudflare-app/`.
 
-1. Keep Firebase Auth and Firestore unchanged during development.
-2. Export and checksum the complete `menarat/state` document before importing.
-3. Import in a staging D1 database first; preserve original operation IDs, invoice references, dates, amounts, and unknown fields (`legacy_json` / `legacy_state`).
-4. Firebase Auth passwords cannot be exported as plaintext. Accounts need a secure password-reset/re-enrolment flow; never copy passwords into this repository.
-5. Test admin and employee permissions against the Worker, not just by hiding buttons in the UI.
-6. Test totals, stock calculations, credit settlement, imports/exports, and concurrent sales against a copy of the data.
-7. Only after user approval and successful verification should the frontend be switched. Keep Firebase as a rollback backup until then.
-8. Do not weaken or delete Firebase security/data as part of this staging work.
+## Release blockers
+- Create a new staging D1 database and apply `schema.sql`.
+- Configure Worker bindings/secrets and same-origin `/api/*` routing.
+- Host the separate frontend on its own Pages project/site without changing the old site's Pages settings.
+- Implement product editing, password change/reset, invoice details/grouping, reports, returns, credit settlement, and payment tracking.
+- Add login rate limiting / Turnstile, audit logs, automated tests, and security review.
+- Complete admin and employee browser tests using non-production test data.
 
-## D1 schema
-
-Apply `schema.sql` only to a newly created D1 database. It is a target schema, not a data import. No production database has been created or modified by this commit.
-
-## Next implementation stages
-
-- Worker API with secure login/logout/session cookies and server-side role checks.
-- One-time admin bootstrap without a hard-coded password.
-- Read endpoints and atomic sale/stock/invoice write endpoint.
-- Admin-only product, supplier, zone, employee, and credit-management endpoints.
-- A validated importer for an exported legacy JSON backup.
-- Frontend API adapter and staged browser tests.
+## Safety
+Never point this Worker or frontend at Firebase. Never reuse the old Firebase database. Do not change the old app, Firebase rules, Firebase accounts, or production deployment as part of this work. No Firebase data transfer is part of this project.

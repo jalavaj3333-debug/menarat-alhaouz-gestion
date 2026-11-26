@@ -28,8 +28,8 @@ This directory is a development workspace on the `cloudflare-migration` branch. 
 - Create a new staging D1 database and apply `schema.sql`.
 - Configure Worker bindings/secrets and same-origin `/api/*` routing.
 - Host the separate frontend on its own Pages project/site without changing the old site's Pages settings.
-- Implement product editing, password change/reset, invoice details/grouping, reports, returns, credit settlement, and payment tracking.
-- Add login rate limiting / Turnstile, audit logs, automated tests, and security review.
+- Implement password change/reset, invoice details/grouping, reports, returns, credit settlement, and payment tracking.
+- Add Turnstile, audit logs, automated tests, and independent security review. Login throttling is already implemented in the Worker; add Cloudflare WAF/rate limiting as a second layer.
 - Complete admin and employee browser tests using non-production test data.
 
 ## Safety

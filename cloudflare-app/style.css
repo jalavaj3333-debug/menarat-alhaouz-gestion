@@ -170,3 +170,8 @@ footer{text-align:center;color:#9aa5b5;font-size:10px;letter-spacing:1px;padding
 .stock-alert-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
 .stock-alert-stats .stat-card strong{font-size:25px}
 @media(max-width:720px){.stock-alert-controls{align-items:stretch;display:grid}.stock-alert-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.stock-alert-stats .stat-card{padding:12px 8px}.stock-alert-stats .stat-card strong{font-size:20px}}
+
+
+/* Expense management */
+#page-expenses .stats-grid{margin-top:16px}
+#page-expenses .form-panel{margin-bottom:16px}

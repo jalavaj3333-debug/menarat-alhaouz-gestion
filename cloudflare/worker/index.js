@@ -177,11 +177,13 @@ async function handle(request, env) {
   if (!user) return json({ error: "Authentication required" }, 401);
 
   if (path === "/api/state" && request.method === "GET") {
-    const [products, employees, zones, suppliers, invoices] = await Promise.all([
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS expenses (id TEXT PRIMARY KEY, expense_date TEXT NOT NULL, category TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', amount REAL NOT NULL CHECK(amount > 0), created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
+    const [products, employees, zones, suppliers, invoices, expenses] = await Promise.all([
       env.DB.prepare("SELECT id, name AS nom, unit AS unite, price AS prix, opening_stock AS stockInitial, current_stock AS stock, supplier_name AS fournisseur FROM products WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM employees WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM zones WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name AS nom, phone AS tel FROM suppliers WHERE active=1 ORDER BY name").all(),
+      env.DB.prepare("SELECT id,expense_date AS date,category,description,amount,created_by FROM expenses WHERE active=1 ORDER BY expense_date DESC,created_at DESC").all(),
       env.DB.prepare("SELECT i.*, l.id AS line_id, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id WHERE (? = 'admin' OR i.employee_user_id = ?) ORDER BY i.operation_date DESC").bind(user.role, user.id).all()
     ]);
     const operations = (invoices.results || []).filter(row => row.produit).map(row => ({
@@ -194,8 +196,27 @@ async function handle(request, env) {
       user: { id: user.id, email: user.email, displayName: user.display_name, role: user.role },
       produits: products.results || [], employes: employees.results || [],
       zones: zones.results || [], fournisseurs: suppliers.results || [],
-      operations, panier: []
+      operations, expenses: expenses.results || [], panier: []
     });
+  }
+
+  if (path === "/api/expenses" && request.method === "POST") {
+    if (!requireAdmin(user)) return json({ error: "Admin permission required" }, 403);
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS expenses (id TEXT PRIMARY KEY, expense_date TEXT NOT NULL, category TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', amount REAL NOT NULL CHECK(amount > 0), created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
+    const data = await body(request);
+    const date = clean(data.date,10), category = clean(data.category,80), description = clean(data.description,240), amount = Number(data.amount);
+    if (!validDate(date) || !category || !Number.isFinite(amount) || amount <= 0 || amount > 100000000) return json({ error: "تأكد من التاريخ والتصنيف والمبلغ" },400);
+    const id = crypto.randomUUID();
+    await env.DB.prepare("INSERT INTO expenses(id,expense_date,category,description,amount,created_by) VALUES(?,?,?,?,?,?)").bind(id,date,category,description,amount,user.display_name).run();
+    return json({ ok:true,id },201);
+  }
+  if (path.startsWith("/api/expenses/") && request.method === "DELETE") {
+    if (!requireAdmin(user)) return json({ error: "Admin permission required" },403);
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" },403);
+    const id = path.split("/").filter(Boolean)[2] || "";
+    const result = await env.DB.prepare("UPDATE expenses SET active=0 WHERE id=? AND active=1").bind(id).run();
+    return Number(result.meta?.changes||0)===1 ? json({ok:true}) : json({error:"المصروف غير موجود"},404);
   }
 
   if (path === "/api/sales" && request.method === "POST") {

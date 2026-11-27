@@ -92,9 +92,17 @@
           <article class="stat-card"><span>الفرق بين المبيعات والمشتريات</span><strong id="bilanBenefice">0.00 DH</strong><small>قبل احتساب المصاريف الأخرى</small></article>
           <article class="stat-card"><span>القيمة التقديرية للمخزون</span><strong id="bilanValeurStock">0.00 DH</strong></article>
         </div>
+        <div class="panel bilan-controls">
+          <div class="bilan-date-filters"><label>من تاريخ <input id="bilanFrom" type="date"></label><label>إلى تاريخ <input id="bilanTo" type="date"></label></div>
+          <div class="bilan-actions"><button id="exportBilanBtn" class="outline" type="button">تصدير Excel / CSV</button><button id="printBilanBtn" class="primary" type="button">طباعة / PDF</button></div>
+          <p class="muted">الفلتر يطبق على الأرقام والرسوم والجداول. الطباعة تتيح اختيار Save as PDF.</p>
+        </div>
+        <div id="bilanMonthHighlights" class="bilan-highlights"></div>
         <div class="bilan-charts">
           <article class="panel chart-panel"><h3>تطور المبيعات والمشتريات حسب الشهر</h3><div id="bilanMonthlyChart" class="chart-area"></div></article>
           <article class="panel chart-panel"><h3>أكثر المنتجات مبيعاً</h3><div id="bilanProductsChart" class="chart-area"></div></article>
+          <article class="panel chart-panel"><h3>المبيعات حسب المناطق</h3><div id="bilanZonesChart" class="chart-area"></div></article>
+          <article class="panel chart-panel"><h3>المبيعات حسب الموظفين</h3><div id="bilanEmployeesChart" class="chart-area"></div></article>
         </div>
         <div class="panel">
           <div class="toolbar bilan-toolbar">

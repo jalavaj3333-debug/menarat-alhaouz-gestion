@@ -34,7 +34,7 @@ function renderBilanCharts(ops){
   const monthly={},products={},zones={},employees={};
   const from=$("bilanFrom")?.value||"",to=$("bilanTo")?.value||"";
   const expenses=(state.data.expenses||[]).filter(x=>{const date=String(x.date||"");return (!from||date>=from)&&(!to||date<=to)});
-  const ensureMonth=m=>{if(/^\\d{4}-\\d{2}$/.test(m)){if(!monthly[m])monthly[m]={sales:0,purchases:0,expenses:0};return monthly[m]}return null};
+  const ensureMonth=m=>{if(/^\d{4}-\d{2}$/.test(m)){if(!monthly[m])monthly[m]={sales:0,purchases:0,expenses:0};return monthly[m]}return null};
   for(const op of ops){
    const amount=Number(op.total)||0,month=String(op.date||"").slice(0,7),bucket=ensureMonth(month);
    if(bucket){if(op.type==="vente")bucket.sales+=amount;if(op.type==="achat")bucket.purchases+=amount}

@@ -31,33 +31,35 @@ function getBilanOperations(){
  });
 }
 function renderBilanCharts(ops){
- const monthly={},products={},zones={},employees={};
- for(const op of ops){
-  const amount=Number(op.total)||0,month=String(op.date||"").slice(0,7);
-  if(/^\d{4}-\d{2}$/.test(month)){
-   if(!monthly[month])monthly[month]={sales:0,purchases:0};
-   if(op.type==="vente")monthly[month].sales+=amount;
-   if(op.type==="achat")monthly[month].purchases+=amount;
+  const monthly={},products={},zones={},employees={};
+  const from=$("bilanFrom")?.value||"",to=$("bilanTo")?.value||"";
+  const expenses=(state.data.expenses||[]).filter(x=>{const date=String(x.date||"");return (!from||date>=from)&&(!to||date<=to)});
+  const ensureMonth=m=>{if(/^\\d{4}-\\d{2}$/.test(m)){if(!monthly[m])monthly[m]={sales:0,purchases:0,expenses:0};return monthly[m]}return null};
+  for(const op of ops){
+   const amount=Number(op.total)||0,month=String(op.date||"").slice(0,7),bucket=ensureMonth(month);
+   if(bucket){if(op.type==="vente")bucket.sales+=amount;if(op.type==="achat")bucket.purchases+=amount}
+   if(op.type==="vente"){
+    const product=String(op.produit||"غير محدد");products[product]=(products[product]||0)+amount;
+    const zone=String(op.zone||"غير محددة");zones[zone]=(zones[zone]||0)+amount;
+    const employee=String(op.employe||"غير محدد");employees[employee]=(employees[employee]||0)+amount;
+   }
   }
-  if(op.type==="vente"){
-   const product=String(op.produit||"غير محدد");
-   products[product]=(products[product]||0)+amount;
-   const zone=String(op.zone||"غير محددة");
-   zones[zone]=(zones[zone]||0)+amount;
-   const employee=String(op.employe||"غير محدد");
-   employees[employee]=(employees[employee]||0)+amount;
-  }
- }
- const months=Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6);
- const maxMonth=Math.max(1,...months.flatMap(([,v])=>[v.sales,v.purchases]));
- const monthChart=$("bilanMonthlyChart");
- if(monthChart)monthChart.innerHTML=months.length?'<div class="chart-legend"><span><i class="chart-dot" style="background:#239b75"></i>المبيعات</span><span><i class="chart-dot" style="background:#d69b35"></i>المشتريات</span></div>'+months.map(([m,v])=>'<div class="chart-row"><span class="chart-label">'+esc(m)+'</span><div class="chart-bars"><div class="chart-bar-track"><div class="chart-bar sales" style="width:'+v.sales/maxMonth*100+'%"></div></div><div class="chart-value">بيع: '+money(v.sales)+'</div><div class="chart-bar-track"><div class="chart-bar purchases" style="width:'+v.purchases/maxMonth*100+'%"></div></div><div class="chart-value">شراء: '+money(v.purchases)+'</div></div></div>').join(""):'<div class="chart-empty">لا توجد بيانات شهرية ضمن الفترة المحددة</div>';
- const draw=(id,values)=>{const target=$(id),items=Object.entries(values).sort((a,b)=>b[1]-a[1]).slice(0,5),max=Math.max(1,...items.map(x=>x[1]));if(target)target.innerHTML=items.length?items.map(([name,value])=>'<div class="chart-row"><span class="chart-label" title="'+esc(name)+'">'+esc(name)+'</span><div class="chart-bars"><div class="chart-bar-track"><div class="chart-bar sales" style="width:'+value/max*100+'%"></div></div><div class="chart-value">'+money(value)+'</div></div></div>').join(""):'<div class="chart-empty">لا توجد مبيعات ضمن الفترة المحددة</div>'};
- draw("bilanProductsChart",products);draw("bilanZonesChart",zones);draw("bilanEmployeesChart",employees);
- const ranked=Object.entries(monthly).sort((a,b)=>a[1].sales-b[1].sales);
- const best=ranked.length?ranked[ranked.length-1]:null,worst=ranked.length?ranked[0]:null;
- const summary=$("bilanMonthHighlights");
- if(summary)summary.innerHTML=ranked.length?'<div class="highlight-item"><span>أحسن شهر من حيث المبيعات</span><strong>'+esc(best[0])+' — '+money(best[1].sales)+'</strong></div><div class="highlight-item"><span>أضعف شهر من حيث المبيعات</span><strong>'+esc(worst[0])+' — '+money(worst[1].sales)+'</strong></div>':'<p class="muted">لا توجد بيانات شهرية كافية للمقارنة.</p>';
+  for(const expense of expenses){const bucket=ensureMonth(String(expense.date||"").slice(0,7));if(bucket)bucket.expenses+=Number(expense.amount)||0}
+  const months=Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-8);
+  const maxMonth=Math.max(1,...months.flatMap(([,v])=>[v.sales,v.purchases]));
+  const monthChart=$("bilanMonthlyChart");
+  if(monthChart)monthChart.innerHTML=months.length?'<div class="chart-legend"><span><i class="chart-dot" style="background:#239b75"></i>المبيعات</span><span><i class="chart-dot" style="background:#d69b35"></i>المشتريات</span></div>'+months.map(([m,v])=>'<div class="chart-row"><span class="chart-label">'+esc(m)+'</span><div class="chart-bars"><div class="chart-bar-track"><div class="chart-bar sales" style="width:'+v.sales/maxMonth*100+'%"></div></div><div class="chart-value">بيع: '+money(v.sales)+'</div><div class="chart-bar-track"><div class="chart-bar purchases" style="width:'+v.purchases/maxMonth*100+'%"></div></div><div class="chart-value">شراء: '+money(v.purchases)+'</div></div></div>').join(""):'<div class="chart-empty">لا توجد بيانات شهرية ضمن الفترة المحددة</div>';
+  const vertical=(id,items,series,color)=>{const target=$(id);if(!target)return;if(!items.length){target.innerHTML='<div class="chart-empty">لا توجد بيانات ضمن الفترة المحددة</div>';return}
+   const max=Math.max(1,...items.flatMap(x=>series.map(s=>Math.max(0,x[s.key]||0))));
+   target.innerHTML='<div class="pro-chart-legend">'+series.map(s=>'<span><i style="background:'+s.color+'"></i>'+s.label+'</span>').join("")+'</div><div class="pro-column-chart">'+items.map(item=>'<div class="pro-column-group"><div class="pro-columns">'+series.map(s=>{const value=Math.max(0,Number(item[s.key])||0),height=value/max*100;return '<div class="pro-column-wrap" title="'+esc(s.label)+': '+esc(money(value))+'"><div class="pro-column-value">'+(value?esc(money(value)):"")+'</div><div class="pro-column '+s.className+'" style="height:'+Math.max(value?3:0,height)+'%"></div></div>'}).join("")+'</div><span class="pro-column-label">'+esc(item.label)+'</span></div>').join("")+'</div>'};
+  vertical("bilanExpensesChart",months.map(([label,v])=>({label,expenses:v.expenses})),[{key:"expenses",label:"المصاريف",color:"#e18a58",className:"expense"}]);
+  vertical("bilanProfitChart",months.map(([label,v])=>({label,profit:v.sales-v.purchases-v.expenses})),[{key:"profit",label:"الصافي التقديري",color:"#3989c9",className:"profit"}]);
+  const stockItems=(state.data.produits||[]).map(p=>({label:p.nom||"منتج",value:Math.max(0,Number(p.stock)||0)*Math.max(0,Number(p.prix)||0),quantity:Math.max(0,Number(p.stock)||0)})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value).slice(0,8);
+  vertical("bilanStockChart",stockItems.map(x=>({label:x.label,value:x.value})),[{key:"value",label:"قيمة المخزون",color:"#8b72c8",className:"stock"}]);
+  const draw=(id,values)=>{const target=$(id),items=Object.entries(values).sort((a,b)=>b[1]-a[1]).slice(0,5),max=Math.max(1,...items.map(x=>x[1]));if(target)target.innerHTML=items.length?items.map(([name,value])=>'<div class="chart-row"><span class="chart-label" title="'+esc(name)+'">'+esc(name)+'</span><div class="chart-bars"><div class="chart-bar-track"><div class="chart-bar sales" style="width:'+value/max*100+'%"></div></div><div class="chart-value">'+money(value)+'</div></div></div>').join(""):'<div class="chart-empty">لا توجد مبيعات ضمن الفترة المحددة</div>'};
+  draw("bilanProductsChart",products);draw("bilanZonesChart",zones);draw("bilanEmployeesChart",employees);
+  const ranked=Object.entries(monthly).sort((a,b)=>a[1].sales-b[1].sales),best=ranked.length?ranked[ranked.length-1]:null,worst=ranked.length?ranked[0]:null,summary=$("bilanMonthHighlights");
+  if(summary)summary.innerHTML=ranked.length?'<div class="highlight-item"><span>أحسن شهر من حيث المبيعات</span><strong>'+esc(best[0])+' — '+money(best[1].sales)+'</strong></div><div class="highlight-item"><span>أضعف شهر من حيث المبيعات</span><strong>'+esc(worst[0])+' — '+money(worst[1].sales)+'</strong></div>':'<p class="muted">لا توجد بيانات شهرية كافية للمقارنة.</p>';
 }
 function renderBilan(){
  const d=state.data,ops=getBilanOperations();

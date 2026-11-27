@@ -122,3 +122,20 @@ footer{text-align:center;color:#9aa5b5;font-size:10px;letter-spacing:1px;padding
 .side-logo{width:48px;height:48px;flex:0 0 48px;border-radius:13px;padding:3px}
 .welcome-logo{width:76px;height:76px;flex:0 0 76px;border-radius:20px;padding:5px;position:relative;z-index:1}
 @media(max-width:720px){.login-logo{width:78px;height:78px}.side-logo{width:42px;height:42px;flex-basis:42px}.welcome-logo{width:54px;height:54px;flex-basis:54px;border-radius:15px}}
+
+/* Bilan charts */
+.bilan-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:16px 0}
+.chart-panel{min-width:0;padding:18px}
+.chart-panel h3{font-size:15px;margin:0 0 18px}
+.chart-area{display:flex;flex-direction:column;gap:13px;min-height:150px}
+.chart-empty{color:var(--muted,#777);font-size:13px;padding:24px 0;text-align:center}
+.chart-row{display:grid;grid-template-columns:minmax(70px,110px) 1fr;gap:10px;align-items:center;font-size:12px}
+.chart-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text,#333)}
+.chart-bars{display:flex;flex-direction:column;gap:4px;min-width:0}
+.chart-bar-track{height:11px;border-radius:8px;background:var(--surface-2,#eee);overflow:hidden}
+.chart-bar{height:100%;border-radius:8px;min-width:2px}
+.chart-bar.sales{background:#239b75}.chart-bar.purchases{background:#d69b35}.chart-value{font-size:11px;color:var(--muted,#777)}
+.chart-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted,#777);margin-bottom:4px}
+.chart-legend span{display:inline-flex;align-items:center;gap:5px}
+.chart-dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+@media(max-width:760px){.bilan-charts{grid-template-columns:1fr}.chart-panel{padding:14px}.chart-row{grid-template-columns:80px 1fr}}

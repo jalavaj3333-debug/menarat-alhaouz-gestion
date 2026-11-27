@@ -175,3 +175,12 @@ footer{text-align:center;color:#9aa5b5;font-size:10px;letter-spacing:1px;padding
 /* Expense management */
 #page-expenses .stats-grid{margin-top:16px}
 #page-expenses .form-panel{margin-bottom:16px}
+
+
+/* Debt management */
+.debt-stats{grid-template-columns:repeat(3,minmax(0,1fr));margin:16px 0}
+.debt-stats .stat-card strong{font-size:22px;overflow-wrap:anywhere}
+#page-debts .form-panel{margin-bottom:16px}
+#page-debts .data-table td{vertical-align:middle}
+#page-debts .data-table td:last-child{min-width:145px}
+@media(max-width:720px){.debt-stats{grid-template-columns:1fr}.debt-stats .stat-card strong{font-size:19px}}

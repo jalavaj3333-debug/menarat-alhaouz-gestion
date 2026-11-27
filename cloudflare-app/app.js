@@ -23,48 +23,58 @@ function renderAll(){const d=state.data;const sales=d.operations.filter(x=>x.typ
 const recent=[...d.operations].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,7);$("recentList").innerHTML=table(["التاريخ","النوع","المنتج","الكمية","المجموع"],recent.map(x=>'<tr><td>'+esc(x.date)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td></tr>'));
 renderProducts();renderHistory();renderNamedLists();renderBilan();refreshSaleOptions()}
 
-function renderBilanCharts(){
- const ops=state.data.operations||[];
- const monthly={};
+function getBilanOperations(){
+ const from=$("bilanFrom")?.value||"",to=$("bilanTo")?.value||"";
+ return (state.data.operations||[]).filter(op=>{
+  const date=String(op.date||"");
+  return (!from||date>=from)&&(!to||date<=to);
+ });
+}
+function renderBilanCharts(ops){
+ const monthly={},products={},zones={},employees={};
  for(const op of ops){
-  const month=String(op.date||"").slice(0,7);
-  if(!/^\d{4}-\d{2}$/.test(month))continue;
-  if(!monthly[month])monthly[month]={sales:0,purchases:0};
-  if(op.type==="vente")monthly[month].sales+=Number(op.total)||0;
-  if(op.type==="achat")monthly[month].purchases+=Number(op.total)||0;
+  const amount=Number(op.total)||0,month=String(op.date||"").slice(0,7);
+  if(/^\d{4}-\d{2}$/.test(month)){
+   if(!monthly[month])monthly[month]={sales:0,purchases:0};
+   if(op.type==="vente")monthly[month].sales+=amount;
+   if(op.type==="achat")monthly[month].purchases+=amount;
+  }
+  if(op.type==="vente"){
+   const product=String(op.produit||"غير محدد");
+   products[product]=(products[product]||0)+amount;
+   const zone=String(op.zone||"غير محددة");
+   zones[zone]=(zones[zone]||0)+amount;
+   const employee=String(op.employe||"غير محدد");
+   employees[employee]=(employees[employee]||0)+amount;
+  }
  }
  const months=Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6);
  const maxMonth=Math.max(1,...months.flatMap(([,v])=>[v.sales,v.purchases]));
  const monthChart=$("bilanMonthlyChart");
- if(monthChart){
-  monthChart.innerHTML=months.length?'<div class="chart-legend"><span><i class="chart-dot" style="background:#239b75"></i>المبيعات</span><span><i class="chart-dot" style="background:#d69b35"></i>المشتريات</span></div>'+months.map(([m,v])=>'<div class="chart-row"><span class="chart-label">'+esc(m)+'</span><div class="chart-bars"><div class="chart-bar-track"><div class="chart-bar sales" style="width:'+Math.max(0,v.sales/maxMonth*100)+'%"></div></div><div class="chart-value">'+money(v.sales)+'</div><div class="chart-bar-track"><div class="chart-bar purchases" style="width:'+Math.max(0,v.purchases/maxMonth*100)+'%"></div></div><div class="chart-value">'+money(v.purchases)+'</div></div></div>').join(""):'<div class="chart-empty">لا توجد عمليات مؤرخة لعرض الرسم البياني</div>';
- }
- const products={};
- for(const op of ops){if(op.type!=="vente")continue;const name=String(op.produit||"غير محدد");products[name]=(products[name]||0)+(Number(op.total)||0)}
- const top=Object.entries(products).sort((a,b)=>b[1]-a[1]).slice(0,5);
- const maxProduct=Math.max(1,...top.map(x=>x[1]));
- const productChart=$("bilanProductsChart");
- if(productChart)productChart.innerHTML=top.length?top.map(([name,value])=>'<div class="chart-row"><span class="chart-label" title="'+esc(name)+'">'+esc(name)+'</span><div class="chart-bars"><div class="chart-bar-track"><div class="chart-bar sales" style="width:'+Math.max(0,value/maxProduct*100)+'%"></div></div><div class="chart-value">'+money(value)+'</div></div></div>').join(""):'<div class="chart-empty">لا توجد مبيعات مسجلة لعرض المنتجات</div>';
+ if(monthChart)monthChart.innerHTML=months.length?'<div class="chart-legend"><span><i class="chart-dot" style="background:#239b75"></i>المبيعات</span><span><i class="chart-dot" style="background:#d69b35"></i>المشتريات</span></div>'+months.map(([m,v])=>'<div class="chart-row"><span class="chart-label">'+esc(m)+'</span><div class="chart-bars"><div class="chart-bar-track"><div class="chart-bar sales" style="width:'+v.sales/maxMonth*100+'%"></div></div><div class="chart-value">بيع: '+money(v.sales)+'</div><div class="chart-bar-track"><div class="chart-bar purchases" style="width:'+v.purchases/maxMonth*100+'%"></div></div><div class="chart-value">شراء: '+money(v.purchases)+'</div></div></div>').join(""):'<div class="chart-empty">لا توجد بيانات شهرية ضمن الفترة المحددة</div>';
+ const draw=(id,values)=>{const target=$(id),items=Object.entries(values).sort((a,b)=>b[1]-a[1]).slice(0,5),max=Math.max(1,...items.map(x=>x[1]));if(target)target.innerHTML=items.length?items.map(([name,value])=>'<div class="chart-row"><span class="chart-label" title="'+esc(name)+'">'+esc(name)+'</span><div class="chart-bars"><div class="chart-bar-track"><div class="chart-bar sales" style="width:'+value/max*100+'%"></div></div><div class="chart-value">'+money(value)+'</div></div></div>').join(""):'<div class="chart-empty">لا توجد مبيعات ضمن الفترة المحددة</div>'};
+ draw("bilanProductsChart",products);draw("bilanZonesChart",zones);draw("bilanEmployeesChart",employees);
+ const ranked=Object.entries(monthly).sort((a,b)=>a[1].sales-b[1].sales);
+ const best=ranked.length?ranked[ranked.length-1]:null,worst=ranked.length?ranked[0]:null;
+ const summary=$("bilanMonthHighlights");
+ if(summary)summary.innerHTML=ranked.length?'<div class="highlight-item"><span>أحسن شهر من حيث المبيعات</span><strong>'+esc(best[0])+' — '+money(best[1].sales)+'</strong></div><div class="highlight-item"><span>أضعف شهر من حيث المبيعات</span><strong>'+esc(worst[0])+' — '+money(worst[1].sales)+'</strong></div>':'<p class="muted">لا توجد بيانات شهرية كافية للمقارنة.</p>';
 }
-
 function renderBilan(){
- renderBilanCharts();
- const d=state.data, ops=d.operations||[];
- const ventes=ops.filter(x=>x.type==="vente"), achats=ops.filter(x=>x.type==="achat");
+ const d=state.data,ops=getBilanOperations();
+ renderBilanCharts(ops);
+ const ventes=ops.filter(x=>x.type==="vente"),achats=ops.filter(x=>x.type==="achat");
  const total=list=>list.reduce((s,x)=>s+(Number(x.total)||0),0);
- const totalV=total(ventes), totalA=total(achats);
+ const totalV=total(ventes),totalA=total(achats);
  const stockValue=(d.produits||[]).reduce((s,p)=>s+Math.max(0,Number(p.stock)||0)*(Number(p.prix)||0),0);
- $("bilanTotalVentes").textContent=money(totalV);
- $("bilanTotalAchats").textContent=money(totalA);
- $("bilanBenefice").textContent=money(totalV-totalA);
- $("bilanValeurStock").textContent=money(stockValue);
+ $("bilanTotalVentes").textContent=money(totalV);$("bilanTotalAchats").textContent=money(totalA);
+ $("bilanBenefice").textContent=money(totalV-totalA);$("bilanValeurStock").textContent=money(stockValue);
  const type=$("bilanType")?.value||"global";
  if(type==="global"){
   $("bilanTable").innerHTML=table(["البيان","القيمة"],[
-   "<tr><td>مجموع المبيعات</td><td><strong>"+money(totalV)+"</strong></td></tr>",
-   "<tr><td>مجموع المشتريات</td><td><strong>"+money(totalA)+"</strong></td></tr>",
+   "<tr><td>مجموع المبيعات خلال الفترة</td><td><strong>"+money(totalV)+"</strong></td></tr>",
+   "<tr><td>مجموع المشتريات خلال الفترة</td><td><strong>"+money(totalA)+"</strong></td></tr>",
    "<tr><td>الفرق بين المبيعات والمشتريات (قبل المصاريف)</td><td><strong>"+money(totalV-totalA)+"</strong></td></tr>",
-   "<tr><td>القيمة التقديرية للمخزون</td><td><strong>"+money(stockValue)+"</strong></td></tr>",
+   "<tr><td>القيمة التقديرية الحالية للمخزون</td><td><strong>"+money(stockValue)+"</strong></td></tr>",
    "<tr><td>عدد عمليات البيع</td><td>"+ventes.length+"</td></tr>",
    "<tr><td>عدد عمليات الشراء</td><td>"+achats.length+"</td></tr>"
   ]);
@@ -73,14 +83,23 @@ function renderBilan(){
  const labels={mois:"الشهر",employe:"الموظف",zone:"المنطقة",produit:"المنتج",fournisseur:"المورد"};
  const groups={};
  for(const op of ops){
-  let key=type==="mois"?(String(op.date||"").slice(0,7)||"غير محدد"):(op[type]||"غير محدد");
+  const key=type==="mois"?(String(op.date||"").slice(0,7)||"غير محدد"):(op[type]||"غير محدد");
   if(!groups[key])groups[key]={count:0,qty:0,total:0,sales:0,purchases:0};
   groups[key].count++;groups[key].qty+=Number(op.quantite)||0;groups[key].total+=Number(op.total)||0;
   if(op.type==="vente")groups[key].sales+=Number(op.total)||0;else if(op.type==="achat")groups[key].purchases+=Number(op.total)||0;
  }
- const rows=Object.entries(groups).sort((a,b)=>b[1].total-a[1].total).map(([key,v])=>"<tr><td>"+esc(key)+"</td><td>"+v.count+"</td><td>"+v.qty.toLocaleString("fr-FR")+"</td><td>"+money(v.sales)+"</td><td>"+money(v.purchases)+"</td><td><strong>"+money(v.total)+"</strong></td></tr>");
- $("bilanTable").innerHTML=rows.length?table([labels[type],"عدد العمليات","الكمية","المبيعات","المشتريات","المجموع"],rows):'<p class="muted">لا توجد بيانات مسجلة حالياً.</p>';
+ const rows=Object.entries(groups).sort((a,b)=>b[1].sales-a[1].sales).map(([key,v])=>"<tr><td>"+esc(key)+"</td><td>"+v.count+"</td><td>"+v.qty.toLocaleString("fr-FR")+"</td><td>"+money(v.sales)+"</td><td>"+money(v.purchases)+"</td><td><strong>"+money(v.total)+"</strong></td></tr>");
+ $("bilanTable").innerHTML=rows.length?table([labels[type],"عدد العمليات","الكمية","المبيعات","المشتريات","المجموع"],rows):'<p class="muted">لا توجد بيانات ضمن الفترة المحددة.</p>';
 }
+function exportBilanCSV(){
+ const ops=getBilanOperations(),rows=[["التاريخ","النوع","الموظف","المورد","المنطقة","المنتج","الكمية","المجموع"]];
+ for(const x of ops)rows.push([x.date,x.type==="achat"?"شراء":"بيع",x.employe||"",x.fournisseur||"",x.zone||"",x.produit,x.quantite,x.total]);
+ const csv="\uFEFF"+rows.map(row=>row.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
+ const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");
+ link.href=url;link.download="menarat-bilan-"+new Date().toISOString().slice(0,10)+".csv";document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
+ toast("تم تجهيز ملف الحصيلة بصيغة CSV المتوافقة مع Excel");
+}
+function printBilan(){document.body.classList.add("printing-bilan");window.print();setTimeout(()=>document.body.classList.remove("printing-bilan"),800)}
 
 function renderProducts(){const q=($("productSearch")?.value||"").toLowerCase();const list=state.data.produits.filter(p=>p.nom.toLowerCase().includes(q));$("productsTable").innerHTML=table(["المنتج","الوحدة","الثمن","المخزون","المورد",...(isAdmin()?["إجراء"]:[])],list.map(p=>'<tr><td>'+esc(p.nom)+'</td><td>'+esc(p.unite)+'</td><td>'+money(p.prix)+'</td><td>'+esc(p.stock)+'</td><td>'+esc(p.fournisseur||"—")+'</td>'+(isAdmin()?'<td><button class="outline" data-edit-product="'+esc(p.id)+'">تعديل</button> <button class="danger" data-delete="products" data-id="'+esc(p.id)+'">حذف</button></td>':"")+'</tr>'))}
 function getFilteredOperations(){
@@ -150,7 +169,7 @@ function exportHistoryCSV(){
   document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
   toast("تم تجهيز ملف العمليات");
 }
-$("bilanType").addEventListener("change",renderBilan);$("exportHistoryBtn").addEventListener("click",exportHistoryCSV);["historySearch","historyType","historyFrom","historyTo"].forEach(id=>$(id).addEventListener("input",renderHistory));$("clearHistoryFilters").addEventListener("click",()=>{["historySearch","historyType","historyFrom","historyTo"].forEach(id=>$(id).value="");renderHistory()});$("productSearch").addEventListener("input",renderProducts);$("addSaleLine").onclick=addSaleLine;$("saleType").onchange=updateSaleType;
+$("bilanType").addEventListener("change",renderBilan);["bilanFrom","bilanTo"].forEach(id=>$(id).addEventListener("change",renderBilan));$("exportBilanBtn").addEventListener("click",exportBilanCSV);$("printBilanBtn").addEventListener("click",printBilan);$("exportHistoryBtn").addEventListener("click",exportHistoryCSV);["historySearch","historyType","historyFrom","historyTo"].forEach(id=>$(id).addEventListener("input",renderHistory));$("clearHistoryFilters").addEventListener("click",()=>{["historySearch","historyType","historyFrom","historyTo"].forEach(id=>$(id).value="");renderHistory()});$("productSearch").addEventListener("input",renderProducts);$("addSaleLine").onclick=addSaleLine;$("saleType").onchange=updateSaleType;
 $("addProductBtn").onclick=async()=>{const name=prompt("اسم المنتج");if(!name?.trim())return;const unit=prompt("الوحدة (مثلاً kg, pièce)")||"";const price=Number(prompt("ثمن البيع")||0);const stock=Number(prompt("المخزون الأولي")||0);if(!Number.isFinite(price)||price<0||!Number.isFinite(stock)||stock<0)return toast("المعطيات غير صحيحة");try{await api("/admin/products",{method:"POST",body:JSON.stringify({name,unit,price,stock})});await loadState();toast("تمت إضافة المنتج")}catch(e){toast(e.message)}};
 $("addEmployeeBtn").onclick=()=>addNamed("employees");$("addZoneBtn").onclick=()=>addNamed("zones");$("addSupplierBtn").onclick=()=>addNamed("suppliers");
 $("saleForm").addEventListener("submit",async e=>{e.preventDefault();const type=$("saleType").value;const rows=[...document.querySelectorAll(".sale-line")];const lines=rows.map(r=>({product:r.querySelector(".line-product").value,quantity:Number(r.querySelector(".line-qty").value),price:Number(r.querySelector(".line-price").value)}));if(!lines.length||lines.some(x=>!x.product||!Number.isFinite(x.quantity)||x.quantity<=0))return toast("تأكد من تفاصيل المنتجات");const payload={type,date:$("saleDate").value,lines,zone:$("saleZone").value,supplier:$("saleSupplier").value,employeeName:$("saleEmployee").value,payment:$("salePayment").value};try{await api("/sales",{method:"POST",body:JSON.stringify(payload)});$("saleLines").innerHTML="";addSaleLine();await loadState();toast("تسجلات العملية بنجاح");go("history")}catch(err){toast(err.message)}});

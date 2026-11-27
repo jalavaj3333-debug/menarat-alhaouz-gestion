@@ -37,7 +37,7 @@ function toast(message){const el=$("toast");el.textContent=message;el.classList.
 function isAdmin(){return state.user?.role==="admin"}
 function setRoleUI(){document.querySelectorAll(".admin-only").forEach(el=>el.classList.toggle("hidden",!isAdmin()));$("userName").textContent=state.user?.displayName||"";$("userRole").textContent=isAdmin()?"مدير النظام":"موظف";$("saleType").querySelector('option[value="achat"]').hidden=!isAdmin()}
 function showLogin(){ $("loginView").classList.remove("hidden");$("appView").classList.add("hidden") }
-function showApp(){ $("loginView").classList.add("hidden");$("appView").classList.remove("hidden");setRoleUI();loadState() }
+function showApp(){ $("loginView").classList.add("hidden");$("appView").classList.remove("hidden");setRoleUI();go("overview");loadState() }
 async function loadState(){try{state.data=await api("/state");renderAll();updateSaleType()}catch(e){toast(e.message)}}
 function go(page){document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));$("page-"+page)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));const names={overview:"الرئيسية",bilan:"الحصيلة Bilan",expenses:"المصاريف",debts:"الديون",products:"المنتجات والمخزون","stock-alerts":"تنبيهات المخزون",sales:"تسجيل عملية",history:"الفواتير والعمليات",employees:"الموظفون",zones:"المناطق",suppliers:"الموردون"};$("pageTitle").textContent=names[page]||"الرئيسية"}
 function table(headers,rows){if(!rows.length)return '<p class="muted">لا توجد بيانات مسجلة حالياً.</p>';return '<table class="data-table"><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table>'}

@@ -275,3 +275,5 @@ input,select{padding:9px 11px;border-radius:10px}
 .pro-column-label{font-size:9px;color:var(--muted,#788);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:760px){.pro-column-chart{gap:4px;height:165px}.pro-columns{height:130px;gap:3px}.pro-column-value{font-size:7px}.pro-column-label{font-size:8px}}
 @media print{.pro-column-chart{break-inside:avoid}}
+
+.pro-column.negative{background:linear-gradient(180deg,#ee9a9a,#cb4545)}

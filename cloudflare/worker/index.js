@@ -178,7 +178,7 @@ async function handle(request, env) {
 
   if (path === "/api/state" && request.method === "GET") {
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS expenses (id TEXT PRIMARY KEY, expense_date TEXT NOT NULL, category TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', amount REAL NOT NULL CHECK(amount > 0), created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
-    const [products, employees, zones, suppliers, invoices, expenses] = await Promise.all([
+    const [products, employees, zones, suppliers, expenses, invoices] = await Promise.all([
       env.DB.prepare("SELECT id, name AS nom, unit AS unite, price AS prix, opening_stock AS stockInitial, current_stock AS stock, supplier_name AS fournisseur FROM products WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM employees WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM zones WHERE active=1 ORDER BY name").all(),

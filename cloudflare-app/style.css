@@ -256,3 +256,22 @@ input,select{padding:9px 11px;border-radius:10px}
  .login-card{padding:26px 20px}
 }
 @media(max-width:390px){.stat-card strong{font-size:17px}.welcome-logo{width:48px;height:48px;flex-basis:48px}}
+
+
+/* Executive analytics charts */
+.pro-chart-area{min-height:210px;justify-content:flex-end}
+.pro-chart-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--muted,#778)}
+.pro-chart-legend span{display:inline-flex;align-items:center;gap:6px}
+.pro-chart-legend i{display:inline-block;width:9px;height:9px;border-radius:3px}
+.pro-column-chart{height:185px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;align-items:stretch;padding:12px 4px 0;border-bottom:1px solid var(--border,#e7eaf0);background:repeating-linear-gradient(to top,transparent 0,transparent 44px,rgba(130,145,165,.12) 45px)}
+.pro-column-group{min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:8px}
+.pro-columns{height:150px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:5px}
+.pro-column-wrap{height:100%;min-width:8px;max-width:36px;flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px}
+.pro-column{width:100%;min-height:0;border-radius:5px 5px 2px 2px;transition:height .25s ease;box-shadow:inset 0 1px rgba(255,255,255,.22)}
+.pro-column.expense{background:linear-gradient(180deg,#f2ad7e,#d97745)}
+.pro-column.profit{background:linear-gradient(180deg,#79b8e8,#347dbb)}
+.pro-column.stock{background:linear-gradient(180deg,#b4a0e7,#8064bf)}
+.pro-column-value{font-size:8px;line-height:1;color:var(--muted,#788);white-space:nowrap;max-width:58px;overflow:hidden;text-overflow:ellipsis}
+.pro-column-label{font-size:9px;color:var(--muted,#788);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:760px){.pro-column-chart{gap:4px;height:165px}.pro-columns{height:130px;gap:3px}.pro-column-value{font-size:7px}.pro-column-label{font-size:8px}}
+@media print{.pro-column-chart{break-inside:avoid}}

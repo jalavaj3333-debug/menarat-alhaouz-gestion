@@ -17,11 +17,46 @@ function setRoleUI(){document.querySelectorAll(".admin-only").forEach(el=>el.cla
 function showLogin(){ $("loginView").classList.remove("hidden");$("appView").classList.add("hidden") }
 function showApp(){ $("loginView").classList.add("hidden");$("appView").classList.remove("hidden");setRoleUI();loadState() }
 async function loadState(){try{state.data=await api("/state");renderAll();updateSaleType()}catch(e){toast(e.message)}}
-function go(page){document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));$("page-"+page)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));const names={overview:"الرئيسية",products:"المنتجات والمخزون",sales:"تسجيل عملية",history:"الفواتير والعمليات",employees:"الموظفون",zones:"المناطق",suppliers:"الموردون"};$("pageTitle").textContent=names[page]||"الرئيسية"}
+function go(page){document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));$("page-"+page)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));const names={overview:"الرئيسية",bilan:"الحصيلة Bilan",products:"المنتجات والمخزون",sales:"تسجيل عملية",history:"الفواتير والعمليات",employees:"الموظفون",zones:"المناطق",suppliers:"الموردون"};$("pageTitle").textContent=names[page]||"الرئيسية"}
 function table(headers,rows){if(!rows.length)return '<p class="muted">لا توجد بيانات مسجلة حالياً.</p>';return '<table class="data-table"><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table>'}
 function renderAll(){const d=state.data;const sales=d.operations.filter(x=>x.type==="vente"),buys=d.operations.filter(x=>x.type==="achat");const now=new Date();const today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,"0"),String(now.getDate()).padStart(2,"0")].join("-");const month=today.slice(0,7);const sumFor=list=>list.reduce((sum,x)=>sum+(Number(x.total)||0),0);$("statProducts").textContent=d.produits.length;$("statStock").textContent=d.produits.reduce((s,p)=>s+(Number(p.stock)||0),0).toLocaleString("fr-FR");$("statSales").textContent=new Set(sales.map(x=>x.factureId)).size;$("statPurchases").textContent=new Set(buys.map(x=>x.factureId)).size;$("statSalesToday").textContent=money(sumFor(sales.filter(x=>x.date===today)));$("statSalesMonth").textContent=money(sumFor(sales.filter(x=>String(x.date||"").startsWith(month))));
 const recent=[...d.operations].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,7);$("recentList").innerHTML=table(["التاريخ","النوع","المنتج","الكمية","المجموع"],recent.map(x=>'<tr><td>'+esc(x.date)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td></tr>'));
-renderProducts();renderHistory();renderNamedLists();refreshSaleOptions()}
+renderProducts();renderHistory();renderNamedLists();renderBilan();refreshSaleOptions()}
+
+function renderBilan(){
+ const d=state.data, ops=d.operations||[];
+ const ventes=ops.filter(x=>x.type==="vente"), achats=ops.filter(x=>x.type==="achat");
+ const total=list=>list.reduce((s,x)=>s+(Number(x.total)||0),0);
+ const totalV=total(ventes), totalA=total(achats);
+ const stockValue=(d.produits||[]).reduce((s,p)=>s+Math.max(0,Number(p.stock)||0)*(Number(p.prix)||0),0);
+ $("bilanTotalVentes").textContent=money(totalV);
+ $("bilanTotalAchats").textContent=money(totalA);
+ $("bilanBenefice").textContent=money(totalV-totalA);
+ $("bilanValeurStock").textContent=money(stockValue);
+ const type=$("bilanType")?.value||"global";
+ if(type==="global"){
+  $("bilanTable").innerHTML=table(["البيان","القيمة"],[
+   "<tr><td>مجموع المبيعات</td><td><strong>"+money(totalV)+"</strong></td></tr>",
+   "<tr><td>مجموع المشتريات</td><td><strong>"+money(totalA)+"</strong></td></tr>",
+   "<tr><td>الفرق بين المبيعات والمشتريات (قبل المصاريف)</td><td><strong>"+money(totalV-totalA)+"</strong></td></tr>",
+   "<tr><td>القيمة التقديرية للمخزون</td><td><strong>"+money(stockValue)+"</strong></td></tr>",
+   "<tr><td>عدد عمليات البيع</td><td>"+ventes.length+"</td></tr>",
+   "<tr><td>عدد عمليات الشراء</td><td>"+achats.length+"</td></tr>"
+  ]);
+  return;
+ }
+ const labels={mois:"الشهر",employe:"الموظف",zone:"المنطقة",produit:"المنتج",fournisseur:"المورد"};
+ const groups={};
+ for(const op of ops){
+  let key=type==="mois"?(String(op.date||"").slice(0,7)||"غير محدد"):(op[type]||"غير محدد");
+  if(!groups[key])groups[key]={count:0,qty:0,total:0,sales:0,purchases:0};
+  groups[key].count++;groups[key].qty+=Number(op.quantite)||0;groups[key].total+=Number(op.total)||0;
+  if(op.type==="vente")groups[key].sales+=Number(op.total)||0;else if(op.type==="achat")groups[key].purchases+=Number(op.total)||0;
+ }
+ const rows=Object.entries(groups).sort((a,b)=>b[1].total-a[1].total).map(([key,v])=>"<tr><td>"+esc(key)+"</td><td>"+v.count+"</td><td>"+v.qty.toLocaleString("fr-FR")+"</td><td>"+money(v.sales)+"</td><td>"+money(v.purchases)+"</td><td><strong>"+money(v.total)+"</strong></td></tr>");
+ $("bilanTable").innerHTML=rows.length?table([labels[type],"عدد العمليات","الكمية","المبيعات","المشتريات","المجموع"],rows):'<p class="muted">لا توجد بيانات مسجلة حالياً.</p>';
+}
+
 function renderProducts(){const q=($("productSearch")?.value||"").toLowerCase();const list=state.data.produits.filter(p=>p.nom.toLowerCase().includes(q));$("productsTable").innerHTML=table(["المنتج","الوحدة","الثمن","المخزون","المورد",...(isAdmin()?["إجراء"]:[])],list.map(p=>'<tr><td>'+esc(p.nom)+'</td><td>'+esc(p.unite)+'</td><td>'+money(p.prix)+'</td><td>'+esc(p.stock)+'</td><td>'+esc(p.fournisseur||"—")+'</td>'+(isAdmin()?'<td><button class="outline" data-edit-product="'+esc(p.id)+'">تعديل</button> <button class="danger" data-delete="products" data-id="'+esc(p.id)+'">حذف</button></td>':"")+'</tr>'))}
 function getFilteredOperations(){
   const q=($("historySearch")?.value||"").trim().toLocaleLowerCase();
@@ -90,7 +125,7 @@ function exportHistoryCSV(){
   document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
   toast("تم تجهيز ملف العمليات");
 }
-$("exportHistoryBtn").addEventListener("click",exportHistoryCSV);["historySearch","historyType","historyFrom","historyTo"].forEach(id=>$(id).addEventListener("input",renderHistory));$("clearHistoryFilters").addEventListener("click",()=>{["historySearch","historyType","historyFrom","historyTo"].forEach(id=>$(id).value="");renderHistory()});$("productSearch").addEventListener("input",renderProducts);$("addSaleLine").onclick=addSaleLine;$("saleType").onchange=updateSaleType;
+$("bilanType").addEventListener("change",renderBilan);$("exportHistoryBtn").addEventListener("click",exportHistoryCSV);["historySearch","historyType","historyFrom","historyTo"].forEach(id=>$(id).addEventListener("input",renderHistory));$("clearHistoryFilters").addEventListener("click",()=>{["historySearch","historyType","historyFrom","historyTo"].forEach(id=>$(id).value="");renderHistory()});$("productSearch").addEventListener("input",renderProducts);$("addSaleLine").onclick=addSaleLine;$("saleType").onchange=updateSaleType;
 $("addProductBtn").onclick=async()=>{const name=prompt("اسم المنتج");if(!name?.trim())return;const unit=prompt("الوحدة (مثلاً kg, pièce)")||"";const price=Number(prompt("ثمن البيع")||0);const stock=Number(prompt("المخزون الأولي")||0);if(!Number.isFinite(price)||price<0||!Number.isFinite(stock)||stock<0)return toast("المعطيات غير صحيحة");try{await api("/admin/products",{method:"POST",body:JSON.stringify({name,unit,price,stock})});await loadState();toast("تمت إضافة المنتج")}catch(e){toast(e.message)}};
 $("addEmployeeBtn").onclick=()=>addNamed("employees");$("addZoneBtn").onclick=()=>addNamed("zones");$("addSupplierBtn").onclick=()=>addNamed("suppliers");
 $("saleForm").addEventListener("submit",async e=>{e.preventDefault();const type=$("saleType").value;const rows=[...document.querySelectorAll(".sale-line")];const lines=rows.map(r=>({product:r.querySelector(".line-product").value,quantity:Number(r.querySelector(".line-qty").value),price:Number(r.querySelector(".line-price").value)}));if(!lines.length||lines.some(x=>!x.product||!Number.isFinite(x.quantity)||x.quantity<=0))return toast("تأكد من تفاصيل المنتجات");const payload={type,date:$("saleDate").value,lines,zone:$("saleZone").value,supplier:$("saleSupplier").value,employeeName:$("saleEmployee").value,payment:$("salePayment").value};try{await api("/sales",{method:"POST",body:JSON.stringify(payload)});$("saleLines").innerHTML="";addSaleLine();await loadState();toast("تسجلات العملية بنجاح");go("history")}catch(err){toast(err.message)}});

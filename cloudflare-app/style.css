@@ -639,3 +639,72 @@ footer{font-size:10px}
  #page-bilan>.panel:last-child{padding:12px}
 }
 @media(prefers-reduced-motion:reduce){.page{animation:none}}
+
+
+/* Internal pages — unified professional controls and data surfaces */
+.main-area .form-panel{
+  padding:clamp(16px,2.2vw,24px);
+  border:1px solid var(--line);
+  box-shadow:0 8px 24px rgba(24,42,68,.045);
+}
+.main-area .form-grid>div>label,
+.main-area .form-grid>label{
+  color:var(--text);
+  font-size:12px;
+  font-weight:800;
+}
+.main-area input:not([type="checkbox"]):not([type="radio"]),
+.main-area select,
+.main-area textarea{
+  min-height:41px;
+  padding:9px 12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  color:var(--text);
+  background:var(--surface);
+  outline:none;
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+.main-area textarea{min-height:96px}
+.main-area input:focus,
+.main-area select:focus,
+.main-area textarea:focus{
+  border-color:#b58a42;
+  box-shadow:0 0 0 3px rgba(181,138,66,.13);
+}
+.main-area input::placeholder,
+.main-area textarea::placeholder{color:var(--muted);opacity:.78}
+.main-area button{transition:transform .15s ease,box-shadow .15s ease,filter .15s ease}
+.main-area button:hover{filter:brightness(.98)}
+.main-area button:active{transform:translateY(1px)}
+.main-area .form-grid button[type="submit"]{min-height:42px;border-radius:10px;font-weight:800}
+.main-area .toolbar input,
+.main-area .toolbar select{min-height:39px}
+.main-area .table-wrap{box-shadow:0 5px 18px rgba(24,42,68,.035)}
+.main-area .data-table tbody tr:nth-child(even){background:rgba(116,133,157,.035)}
+.main-area .data-table tbody tr:hover{background:rgba(181,138,66,.075)}
+.main-area .data-table td{line-height:1.65}
+.main-area .data-table td strong{font-weight:900}
+.main-area .data-table td button{min-height:30px;font-size:11px;font-weight:800}
+.main-area .pill{display:inline-flex;align-items:center;justify-content:center;min-height:25px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800}
+.main-area .muted{color:var(--muted)}
+.main-area .section-heading button{border-radius:10px}
+.main-area .chart-panel{overflow:hidden}
+@media(max-width:720px){
+ .main-area .form-panel{padding:13px}
+ .main-area .form-grid{gap:12px}
+ .main-area input:not([type="checkbox"]):not([type="radio"]),
+ .main-area select,.main-area textarea{min-height:40px;font-size:13px}
+ .main-area .data-table td button{white-space:nowrap}
+}
+:root[data-theme="dark"] .main-area .form-panel{box-shadow:0 8px 24px rgba(0,0,0,.13)}
+:root[data-theme="dark"] .main-area input:not([type="checkbox"]):not([type="radio"]),
+:root[data-theme="dark"] .main-area select,
+:root[data-theme="dark"] .main-area textarea{
+ background:#111c2b;color:#e7edf5;border-color:#35465d;
+}
+:root[data-theme="dark"] .main-area input::placeholder,
+:root[data-theme="dark"] .main-area textarea::placeholder{color:#8fa0b5}
+:root[data-theme="dark"] .main-area .data-table tbody tr:nth-child(even){background:rgba(148,163,184,.045)}
+:root[data-theme="dark"] .main-area .data-table tbody tr:hover{background:rgba(181,138,66,.12)}
+:root[data-theme="dark"] .main-area .table-wrap{box-shadow:0 5px 18px rgba(0,0,0,.12)}

@@ -34,6 +34,7 @@
       <nav id="mainNav">
         <button class="nav-item active" data-page="overview">▦ <span>الرئيسية</span></button>
         <button class="nav-item" data-page="products">▤ <span>المنتجات والمخزون</span></button>
+        <button class="nav-item" data-page="stock-alerts">⚑ <span>تنبيهات المخزون</span></button>
         <button class="nav-item" data-page="sales">＋ <span>تسجيل عملية</span></button>
         <button class="nav-item" data-page="history">▧ <span>الفواتير والعمليات</span></button>
         <button class="nav-item admin-only" data-page="bilan">▥ <span>الحصيلة Bilan</span></button>
@@ -61,6 +62,21 @@
           <article class="stat-card"><span>قيمة مبيعات الشهر</span><strong id="statSalesMonth">0</strong><small>DH — مجموع الشهر</small></article>
         </div>
         <div class="panel"><div class="panel-heading"><div><h3>آخر العمليات</h3><p>أحدث الحركات المسجلة في قاعدة البيانات</p></div><button class="outline" data-go="history">عرض الكل</button></div><div id="recentList" class="table-wrap"></div></div>
+      </section>
+
+      <section id="page-stock-alerts" class="page hidden">
+        <div class="section-heading"><div><h3>تنبيهات المخزون</h3><p>متابعة المنتجات التي نفد مخزونها أو اقتربت من النفاد</p></div></div>
+        <div class="panel stock-alert-controls">
+          <label for="stockAlertLimit">إظهار المنتجات التي مخزونها يساوي أو يقل عن</label>
+          <div class="stock-alert-limit"><input id="stockAlertLimit" type="number" min="0" step="1" value="5"><span>وحدات</span></div>
+          <p class="muted">يمكنك تغيير الحد حسب طبيعة نشاطك. التنبيه للمتابعة فقط ولا يغيّر المخزون.</p>
+        </div>
+        <div class="stats-grid stock-alert-stats">
+          <article class="stat-card"><span>نفد المخزون</span><strong id="stockOutCount">0</strong></article>
+          <article class="stat-card"><span>مخزون منخفض</span><strong id="stockLowCount">0</strong></article>
+          <article class="stat-card"><span>منتجات تحتاج متابعة</span><strong id="stockAlertCount">0</strong></article>
+        </div>
+        <div class="panel table-wrap" id="stockAlertsTable"></div>
       </section>
 
       <section id="page-products" class="page hidden">

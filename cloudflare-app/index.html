@@ -38,6 +38,7 @@
         <button class="nav-item" data-page="sales">＋ <span>تسجيل عملية</span></button>
         <button class="nav-item" data-page="history">▧ <span>الفواتير والعمليات</span></button>
         <button class="nav-item admin-only" data-page="expenses">د.م <span>المصاريف</span></button>
+        <button class="nav-item admin-only" data-page="debts">د.ي <span>الديون</span></button>
         <button class="nav-item admin-only" data-page="bilan">▥ <span>الحصيلة Bilan</span></button>
         <button class="nav-item admin-only" data-page="employees">♙ <span>الموظفون</span></button>
         <button class="nav-item admin-only" data-page="zones">⌖ <span>المناطق</span></button>
@@ -114,6 +115,24 @@
         </div>
         <div class="stats-grid"><article class="stat-card"><span>مجموع المصاريف المسجلة</span><strong id="expensesTotal">0.00 DH</strong></article><article class="stat-card"><span>عدد المصاريف</span><strong id="expensesCount">0</strong></article></div>
         <div class="panel table-wrap" id="expensesTable"></div>
+      </section>
+      <section id="page-debts" class="page hidden">
+        <div class="section-heading"><div><h3>تدبير الديون</h3><p>تتبع ديون الزبائن والمبالغ المستحقة للموردين، مع تسجيل الأداءات الجزئية</p></div></div>
+        <div class="stats-grid debt-stats">
+          <article class="stat-card"><span>ديون الزبائن المتبقية</span><strong id="debtsReceivable">0.00 DH</strong></article>
+          <article class="stat-card"><span>ديون الموردين المتبقية</span><strong id="debtsPayable">0.00 DH</strong></article>
+          <article class="stat-card"><span>عدد الديون المفتوحة</span><strong id="debtsOpenCount">0</strong></article>
+        </div>
+        <div class="panel form-panel"><form id="debtForm" class="form-grid">
+          <div><label for="debtType">نوع الدين</label><select id="debtType"><option value="receivable">دين لنا عند زبون</option><option value="payable">دين علينا لمورد</option></select></div>
+          <div><label for="debtPerson">اسم الزبون أو المورد</label><input id="debtPerson" maxlength="140" required></div>
+          <div><label for="debtTotal">المبلغ الإجمالي (DH)</label><input id="debtTotal" type="number" min="0.01" step="0.01" required></div>
+          <div><label for="debtPaid">المبلغ المؤدى حالياً (DH)</label><input id="debtPaid" type="number" min="0" step="0.01" value="0"></div>
+          <div><label for="debtDueDate">تاريخ الاستحقاق (اختياري)</label><input id="debtDueDate" type="date"></div>
+          <div><label for="debtNotes">ملاحظات (اختياري)</label><input id="debtNotes" maxlength="500"></div>
+          <div class="wide"><button class="primary" type="submit">＋ تسجيل الدين</button></div>
+        </form></div>
+        <div class="panel table-wrap" id="debtsTable"></div>
       </section>
       <section id="page-bilan" class="page hidden">
         <div class="section-heading"><div><h3>الحصيلة العامة Bilan</h3><p>ملخص المبيعات والمشتريات وقيمة المخزون، مع تحليل حسب الشهر والموظف والمنطقة والمنتج والمورد</p></div></div>

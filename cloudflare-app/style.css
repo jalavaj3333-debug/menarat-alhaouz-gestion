@@ -708,3 +708,14 @@ footer{font-size:10px}
 :root[data-theme="dark"] .main-area .data-table tbody tr:nth-child(even){background:rgba(148,163,184,.045)}
 :root[data-theme="dark"] .main-area .data-table tbody tr:hover{background:rgba(181,138,66,.12)}
 :root[data-theme="dark"] .main-area .table-wrap{box-shadow:0 5px 18px rgba(0,0,0,.12)}
+
+.invoice-import{border:1px solid #e6d9bf;background:linear-gradient(135deg,#fffdf8,#f8fafc);border-radius:15px;padding:17px;margin-bottom:5px}
+.invoice-import-head,.invoice-upload-row,.invoice-review-title,.invoice-review-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.invoice-import-head h4{margin:0 0 4px}.invoice-import-head p{margin:0}.invoice-ai-tag{font-size:10px;font-weight:900;border-radius:20px;padding:5px 10px;background:#efe4cf;color:#896328}
+.invoice-upload-row{margin-top:14px}.invoice-upload-row input{flex:1;min-width:220px;background:#fff}.invoice-review{margin-top:15px;border-top:1px solid #e8e0d2;padding-top:14px}
+.invoice-review-rows{display:grid;gap:8px;margin-top:12px}.invoice-review-row{display:grid;grid-template-columns:minmax(170px,2fr) minmax(85px,.7fr) minmax(100px,.8fr);gap:8px;padding:9px;background:#fff;border:1px solid #e8edf2;border-radius:10px}
+.invoice-review-row small{grid-column:1/-1;color:var(--muted);font-size:10px;overflow-wrap:anywhere}.invoice-review-row select,.invoice-review-row input{padding:8px 9px;border-radius:9px;font-size:12px}
+.invoice-review-actions{justify-content:flex-end;margin-top:12px}[data-theme="dark"] .invoice-import{background:#1a2638;border-color:#46536a}
+[data-theme="dark"] .invoice-ai-tag{background:#493b26;color:#f0d29b}[data-theme="dark"] .invoice-upload-row input,[data-theme="dark"] .invoice-review-row{background:#202d40;color:#e8edf5;border-color:#43516a}
+[data-theme="dark"] .invoice-review-row select,[data-theme="dark"] .invoice-review-row input{background:#172235;color:#f2f5fa;border-color:#4a5870}
+@media(max-width:720px){.invoice-review-row{grid-template-columns:1fr 1fr}.invoice-review-row select{grid-column:1/-1}.invoice-upload-row{display:grid}.invoice-upload-row button{width:100%}}

@@ -3,6 +3,28 @@
 const API = "/api";
 const state = { user:null, data:{ produits:[], employes:[], zones:[], fournisseurs:[], operations:[], expenses:[], debts:[] } };
 const $ = id => document.getElementById(id);
+const THEME_STORAGE_KEY = "menarat-theme";
+function applyTheme(theme){
+  const dark=theme==="dark";
+  document.documentElement.dataset.theme=dark?"dark":"light";
+  const button=$("themeToggle");
+  if(button){
+    button.textContent=dark?"☀️ الوضع العادي":"🌙 الوضع الليلي";
+    button.setAttribute("aria-pressed",String(dark));
+    button.setAttribute("aria-label",dark?"التبديل إلى الوضع العادي":"التبديل إلى الوضع الليلي");
+  }
+}
+function initTheme(){
+  let saved="light";
+  try{saved=localStorage.getItem(THEME_STORAGE_KEY)==="dark"?"dark":"light"}catch{}
+  applyTheme(saved);
+  $("themeToggle")?.addEventListener("click",()=>{
+    const next=document.documentElement.dataset.theme==="dark"?"light":"dark";
+    applyTheme(next);
+    try{localStorage.setItem(THEME_STORAGE_KEY,next)}catch{}
+  });
+}
+
 const money = n => (Number(n)||0).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" DH";
 const esc = value => String(value ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 async function api(path, options={}) {
@@ -228,4 +250,5 @@ $("addProductBtn").onclick=async()=>{const name=prompt("اسم المنتج");if
 $("addEmployeeBtn").onclick=()=>addNamed("employees");$("addZoneBtn").onclick=()=>addNamed("zones");$("addSupplierBtn").onclick=()=>addNamed("suppliers");
 $("saleForm").addEventListener("submit",async e=>{e.preventDefault();const type=$("saleType").value;const rows=[...document.querySelectorAll(".sale-line")];const lines=rows.map(r=>({product:r.querySelector(".line-product").value,quantity:Number(r.querySelector(".line-qty").value),price:Number(r.querySelector(".line-price").value)}));if(!lines.length||lines.some(x=>!x.product||!Number.isFinite(x.quantity)||x.quantity<=0))return toast("تأكد من تفاصيل المنتجات");const payload={type,date:$("saleDate").value,lines,zone:$("saleZone").value,supplier:$("saleSupplier").value,employeeName:$("saleEmployee").value,payment:$("salePayment").value};try{await api("/sales",{method:"POST",body:JSON.stringify(payload)});$("saleLines").innerHTML="";addSaleLine();await loadState();toast("تسجلات العملية بنجاح");go("history")}catch(err){toast(err.message)}});
 const today=new Date();$("expenseDate").value=[today.getFullYear(),String(today.getMonth()+1).padStart(2,"0"),String(today.getDate()).padStart(2,"0")].join("-");$("saleDate").value=[today.getFullYear(),String(today.getMonth()+1).padStart(2,"0"),String(today.getDate()).padStart(2,"0")].join("-");
+initTheme();
 (async()=>{try{const me=await api("/me");state.user=me.user;if(state.user)showApp();else showLogin()}catch{showLogin()}})();

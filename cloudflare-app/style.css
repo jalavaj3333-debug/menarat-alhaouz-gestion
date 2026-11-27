@@ -434,3 +434,64 @@ footer{font-size:10px}
  .data-table,.data-table th{font-size:10px}
  .panel-heading h3,.section-heading h3,.chart-panel h3{font-size:13px}
 }
+
+
+/* Sidebar navigation — clear groups and separated menu items */
+.sidebar nav#mainNav{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:6px;
+  padding:14px 0 18px;
+}
+#mainNav .nav-group-label{
+  display:block;
+  margin:13px 3px 3px;
+  padding:8px 12px 5px;
+  border-bottom:1px solid rgba(145,160,180,.22);
+  color:#8b9bb0;
+  font-size:10px;
+  font-weight:800;
+  line-height:1.7;
+  letter-spacing:0;
+}
+#mainNav .nav-group-label:first-child{margin-top:0}
+#mainNav .nav-item{
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  width:100%;
+  min-height:39px;
+  margin:0;
+  padding:9px 12px;
+  gap:12px;
+  border:1px solid transparent;
+  border-radius:10px;
+  text-align:right;
+  line-height:1.6;
+  white-space:normal;
+}
+#mainNav .nav-item span{
+  display:block;
+  flex:1;
+  min-width:0;
+  text-align:right;
+  line-height:1.6;
+}
+#mainNav .nav-item.active{
+  border-color:rgba(197,160,100,.28);
+  box-shadow:inset -3px 0 0 #c5a064;
+}
+#mainNav .nav-item:hover{transform:translateX(-1px)}
+:root[data-theme="dark"] #mainNav .nav-group-label{
+  color:#9eafc4;
+  border-color:#34445a;
+}
+:root[data-theme="dark"] #mainNav .nav-item.active{
+  background:#293b50;
+  color:#f1d29b;
+}
+@media(max-width:720px){
+  #mainNav .nav-group-label{display:block}
+  #mainNav .nav-item{min-height:37px;padding:8px 10px}
+}

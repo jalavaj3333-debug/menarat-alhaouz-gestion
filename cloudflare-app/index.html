@@ -36,6 +36,7 @@
         <button class="nav-item" data-page="products">▤ <span>المنتجات والمخزون</span></button>
         <button class="nav-item" data-page="sales">＋ <span>تسجيل عملية</span></button>
         <button class="nav-item" data-page="history">▧ <span>الفواتير والعمليات</span></button>
+        <button class="nav-item admin-only" data-page="bilan">▥ <span>الحصيلة Bilan</span></button>
         <button class="nav-item admin-only" data-page="employees">♙ <span>الموظفون</span></button>
         <button class="nav-item admin-only" data-page="zones">⌖ <span>المناطق</span></button>
         <button class="nav-item admin-only" data-page="suppliers">▣ <span>الموردون</span></button>
@@ -83,6 +84,26 @@
       </section>
 
       <section id="page-history" class="page hidden"><div class="section-heading"><div><h3>الفواتير والعمليات</h3><p>سجل جميع حركات البيع والشراء</p></div><button id="exportHistoryBtn" class="outline">تصدير Excel / CSV</button></div><div class="toolbar history-filters"><input id="historySearch" placeholder="بحث برقم الفاتورة أو المنتج أو الموظف..."><select id="historyType"><option value="">كل العمليات</option><option value="vente">البيع فقط</option><option value="achat">الشراء فقط</option></select><label>من <input id="historyFrom" type="date"></label><label>إلى <input id="historyTo" type="date"></label><button id="clearHistoryFilters" class="ghost" type="button">مسح الفلاتر</button></div><p id="historySummary" class="muted"></p><div class="panel table-wrap" id="historyTable"></div></section>
+      <section id="page-bilan" class="page hidden">
+        <div class="section-heading"><div><h3>الحصيلة العامة Bilan</h3><p>ملخص المبيعات والمشتريات وقيمة المخزون، مع تحليل حسب الشهر والموظف والمنطقة والمنتج والمورد</p></div></div>
+        <div class="stats-grid bilan-stats">
+          <article class="stat-card"><span>مجموع المبيعات</span><strong id="bilanTotalVentes">0.00 DH</strong></article>
+          <article class="stat-card"><span>مجموع المشتريات</span><strong id="bilanTotalAchats">0.00 DH</strong></article>
+          <article class="stat-card"><span>الفرق بين المبيعات والمشتريات</span><strong id="bilanBenefice">0.00 DH</strong><small>قبل احتساب المصاريف الأخرى</small></article>
+          <article class="stat-card"><span>القيمة التقديرية للمخزون</span><strong id="bilanValeurStock">0.00 DH</strong></article>
+        </div>
+        <div class="panel">
+          <div class="toolbar bilan-toolbar">
+            <label for="bilanType">طريقة عرض الحصيلة</label>
+            <select id="bilanType">
+              <option value="global">الحصيلة العامة</option><option value="mois">حسب الشهر</option>
+              <option value="employe">حسب الموظف</option><option value="zone">حسب المنطقة</option>
+              <option value="produit">حسب المنتج</option><option value="fournisseur">حسب المورد</option>
+            </select>
+          </div>
+          <div class="table-wrap" id="bilanTable"></div>
+        </div>
+      </section>
       <section id="page-employees" class="page hidden"><div class="section-heading"><div><h3>الموظفون</h3><p>إدارة أسماء الموظفين</p></div><button class="primary" id="addEmployeeBtn">＋ إضافة موظف</button></div><div class="panel table-wrap" id="employeesTable"></div></section>
       <section id="page-zones" class="page hidden"><div class="section-heading"><div><h3>المناطق</h3><p>إدارة مناطق العمل</p></div><button class="primary" id="addZoneBtn">＋ إضافة منطقة</button></div><div class="panel table-wrap" id="zonesTable"></div></section>
       <section id="page-suppliers" class="page hidden"><div class="section-heading"><div><h3>الموردون</h3><p>إدارة الموردين وأرقام التواصل</p></div><button class="primary" id="addSupplierBtn">＋ إضافة مورد</button></div><div class="panel table-wrap" id="suppliersTable"></div></section>

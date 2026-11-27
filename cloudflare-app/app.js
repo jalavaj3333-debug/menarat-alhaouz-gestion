@@ -28,7 +28,7 @@ function renderBilanCharts(){
  const monthly={};
  for(const op of ops){
   const month=String(op.date||"").slice(0,7);
-  if(!/^\\d{4}-\\d{2}$/.test(month))continue;
+  if(!/^\d{4}-\d{2}$/.test(month))continue;
   if(!monthly[month])monthly[month]={sales:0,purchases:0};
   if(op.type==="vente")monthly[month].sales+=Number(op.total)||0;
   if(op.type==="achat")monthly[month].purchases+=Number(op.total)||0;

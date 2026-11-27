@@ -65,7 +65,8 @@ function renderBilan(){
  const ventes=ops.filter(x=>x.type==="vente"),achats=ops.filter(x=>x.type==="achat");
  const total=list=>list.reduce((s,x)=>s+(Number(x.total)||0),0);
  const totalV=total(ventes),totalA=total(achats);
- const expenses=(d.expenses||[]).filter(x=>{const date=String(x.date||"");const from=$("bilanFrom")?.value||"",to=$("bilanTo")?.value||"";return (!from||date>=from)&&(!to||date<=to)});\n const totalE=expenses.reduce((s,x)=>s+(Number(x.amount)||0),0);
+ const expenses=(d.expenses||[]).filter(x=>{const date=String(x.date||"");const from=$("bilanFrom")?.value||"",to=$("bilanTo")?.value||"";return (!from||date>=from)&&(!to||date<=to)});
+ const totalE=expenses.reduce((s,x)=>s+(Number(x.amount)||0),0);
  const stockValue=(d.produits||[]).reduce((s,p)=>s+Math.max(0,Number(p.stock)||0)*(Number(p.prix)||0),0);
  $("bilanTotalVentes").textContent=money(totalV);$("bilanTotalAchats").textContent=money(totalA);
  $("bilanBenefice").textContent=money(totalV-totalA-totalE);$("bilanValeurStock").textContent=money(stockValue);

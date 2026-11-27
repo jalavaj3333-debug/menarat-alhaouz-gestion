@@ -139,3 +139,25 @@ footer{text-align:center;color:#9aa5b5;font-size:10px;letter-spacing:1px;padding
 .chart-legend span{display:inline-flex;align-items:center;gap:5px}
 .chart-dot{width:9px;height:9px;border-radius:50%;display:inline-block}
 @media(max-width:760px){.bilan-charts{grid-template-columns:1fr}.chart-panel{padding:14px}.chart-row{grid-template-columns:80px 1fr}}
+
+
+/* Bilan date filters, highlights and print layout */
+.bilan-controls{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:14px 0}
+.bilan-date-filters,.bilan-actions{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.bilan-date-filters label{display:grid;gap:6px;min-width:155px}
+.bilan-actions button{white-space:nowrap}
+.bilan-highlights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.highlight-item{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:15px 17px}
+.highlight-item span{font-size:12px;color:var(--muted)}
+.highlight-item strong{font-size:14px;color:#172338;text-align:left}
+@media(max-width:720px){.bilan-controls{display:grid}.bilan-date-filters{display:grid;grid-template-columns:1fr 1fr}.bilan-date-filters label{min-width:0}.bilan-actions{display:grid;grid-template-columns:1fr 1fr}.bilan-highlights{grid-template-columns:1fr}.highlight-item{align-items:flex-start;flex-direction:column}}
+@media print{
+ body.printing-bilan{background:#fff!important}
+ body.printing-bilan #loginView,body.printing-bilan .sidebar,body.printing-bilan .topbar,body.printing-bilan footer,body.printing-bilan #toast{display:none!important}
+ body.printing-bilan .main-area{padding:0!important}
+ body.printing-bilan #page-bilan{display:block!important}
+ body.printing-bilan #page-bilan .bilan-controls button{display:none!important}
+ body.printing-bilan .panel,body.printing-bilan .stat-card{box-shadow:none!important;break-inside:avoid}
+ body.printing-bilan .bilan-charts{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body.printing-bilan .data-table{white-space:normal}
+}

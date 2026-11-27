@@ -396,3 +396,41 @@ footer{font-size:11px;letter-spacing:0;line-height:1.7}
  .pro-column-value{font-size:9px}
  .pro-column-label{font-size:10px}
 }
+
+
+/* Smaller, balanced typography requested */
+:root{font-size:14px}
+body{font-size:14px;line-height:1.65}
+button,input,select,textarea{font-size:12px;line-height:1.5}
+label{font-size:12px;line-height:1.6}
+.nav-item,.nav-item span{font-size:12px}
+.nav-group-label{font-size:10px}
+.topbar h2{font-size:17px}
+.welcome h1{font-size:19px}
+.welcome p:last-child{font-size:12px}
+.panel-heading h3,.section-heading h3,.chart-panel h3{font-size:14px}
+.panel-heading p,.section-heading p{font-size:11px}
+.stat-card span,.stat-card small{font-size:11px}
+.stat-card strong{font-size:20px}
+.data-table{font-size:11px}
+.data-table th{font-size:11px}
+.data-table th,.data-table td{padding:9px 11px}
+.primary,.outline,.ghost,.theme-toggle{font-size:12px;min-height:36px;padding:8px 12px}
+.muted,.chart-empty,.chart-value,.chart-legend{font-size:11px}
+.pro-column-value{font-size:9px}
+.pro-column-label{font-size:10px}
+footer{font-size:10px}
+.eyebrow{font-size:10px}
+.login-card h1{font-size:20px}
+.login-card label{font-size:12px}
+@media(max-width:720px){
+ body{font-size:13px}
+ .topbar h2{font-size:16px}
+ .welcome h1{font-size:17px}
+ .welcome p:last-child{font-size:11px}
+ .nav-item,.nav-item span{font-size:11px}
+ .stat-card span,.stat-card small{font-size:10px}
+ .stat-card strong{font-size:18px}
+ .data-table,.data-table th{font-size:10px}
+ .panel-heading h3,.section-heading h3,.chart-panel h3{font-size:13px}
+}

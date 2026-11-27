@@ -2,12 +2,10 @@ name = "menarat-alhaouz-api"
 main = "cloudflare/worker/index.js"
 compatibility_date = "2026-11-26"
 
-# Configure the D1 database binding in the Cloudflare dashboard or
-# replace the placeholder database_id after creating a NEW staging D1 database.
 [[d1_databases]]
 binding = "DB"
 database_name = "menarat-staging"
-database_id = "REPLACE_WITH_NEW_D1_DATABASE_ID"
+database_id = "e93c5c03-75a8-405d-b387-c61f58de3f08"
 
 [vars]
-APP_ORIGIN = "https://REPLACE-WITH-YOUR-PAGES-DOMAIN"
+APP_ORIGIN = "https://menarat-alhaouz-gestion-a7y.pages.dev"

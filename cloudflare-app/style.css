@@ -344,3 +344,55 @@ button{font-size:13px}
  .user-area{justify-content:flex-end;gap:7px}
  .theme-toggle{padding:8px 9px;font-size:12px}
 }
+
+
+/* Cairo typography system — consistent Arabic UI */
+:root{
+  font-family:"Cairo",Tahoma,Arial,sans-serif;
+  font-size:15px;
+  line-height:1.75;
+  font-synthesis:none;
+  text-rendering:optimizeLegibility;
+}
+html,body,button,input,select,textarea{
+  font-family:"Cairo",Tahoma,Arial,sans-serif;
+}
+body{font-size:15px;line-height:1.8}
+button,input,select,textarea{font-size:14px;line-height:1.6}
+label{font-size:13px;line-height:1.7;font-weight:700}
+.nav-item{font-size:13px;line-height:1.65;font-weight:600}
+.nav-item span{font-size:13px}
+.nav-group-label{font-size:11px;letter-spacing:0;line-height:1.7}
+.topbar h2{font-size:19px;line-height:1.5;font-weight:800}
+.welcome h1{font-size:22px;line-height:1.6;font-weight:800}
+.welcome p:last-child{font-size:14px;line-height:1.8}
+.panel-heading h3,.section-heading h3,.chart-panel h3{font-size:16px;line-height:1.6;font-weight:800}
+.panel-heading p,.section-heading p{font-size:13px;line-height:1.7}
+.stat-card span,.stat-card small{font-size:13px;line-height:1.7}
+.stat-card strong{font-size:23px;line-height:1.45;font-weight:800}
+.data-table{font-size:13px;line-height:1.7}
+.data-table th{font-size:13px;line-height:1.7;font-weight:800}
+.data-table th,.data-table td{padding:11px 13px}
+input,select,textarea{min-height:43px}
+.primary,.outline,.ghost,.theme-toggle{font-size:13px;line-height:1.6;font-weight:700;min-height:40px}
+.muted,.chart-empty,.chart-value,.chart-legend{font-size:12px;line-height:1.7}
+.pro-column-value{font-size:10px;line-height:1.35}
+.pro-column-label{font-size:11px;line-height:1.4}
+footer{font-size:11px;letter-spacing:0;line-height:1.7}
+.eyebrow{font-size:11px;letter-spacing:0;line-height:1.6}
+.side-brand b,.side-brand small{letter-spacing:0;line-height:1.6}
+.login-card h1{font-size:22px;line-height:1.6}
+.login-card label{font-size:13px}
+@media(max-width:720px){
+ body{font-size:14px}
+ .topbar h2{font-size:18px}
+ .welcome h1{font-size:19px}
+ .welcome p:last-child{font-size:13px}
+ .nav-item,.nav-item span{font-size:13px}
+ .stat-card span,.stat-card small{font-size:12px}
+ .data-table{font-size:12px}
+ .data-table th{font-size:12px}
+ .panel-heading h3,.section-heading h3,.chart-panel h3{font-size:15px}
+ .pro-column-value{font-size:9px}
+ .pro-column-label{font-size:10px}
+}

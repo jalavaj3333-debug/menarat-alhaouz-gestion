@@ -23,7 +23,32 @@ function renderAll(){const d=state.data;const sales=d.operations.filter(x=>x.typ
 const recent=[...d.operations].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,7);$("recentList").innerHTML=table(["التاريخ","النوع","المنتج","الكمية","المجموع"],recent.map(x=>'<tr><td>'+esc(x.date)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td></tr>'));
 renderProducts();renderHistory();renderNamedLists();renderBilan();refreshSaleOptions()}
 
+function renderBilanCharts(){
+ const ops=state.data.operations||[];
+ const monthly={};
+ for(const op of ops){
+  const month=String(op.date||"").slice(0,7);
+  if(!/^\\d{4}-\\d{2}$/.test(month))continue;
+  if(!monthly[month])monthly[month]={sales:0,purchases:0};
+  if(op.type==="vente")monthly[month].sales+=Number(op.total)||0;
+  if(op.type==="achat")monthly[month].purchases+=Number(op.total)||0;
+ }
+ const months=Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6);
+ const maxMonth=Math.max(1,...months.flatMap(([,v])=>[v.sales,v.purchases]));
+ const monthChart=$("bilanMonthlyChart");
+ if(monthChart){
+  monthChart.innerHTML=months.length?'<div class="chart-legend"><span><i class="chart-dot" style="background:#239b75"></i>المبيعات</span><span><i class="chart-dot" style="background:#d69b35"></i>المشتريات</span></div>'+months.map(([m,v])=>'<div class="chart-row"><span class="chart-label">'+esc(m)+'</span><div class="chart-bars"><div class="chart-bar-track"><div class="chart-bar sales" style="width:'+Math.max(0,v.sales/maxMonth*100)+'%"></div></div><div class="chart-value">'+money(v.sales)+'</div><div class="chart-bar-track"><div class="chart-bar purchases" style="width:'+Math.max(0,v.purchases/maxMonth*100)+'%"></div></div><div class="chart-value">'+money(v.purchases)+'</div></div></div>').join(""):'<div class="chart-empty">لا توجد عمليات مؤرخة لعرض الرسم البياني</div>';
+ }
+ const products={};
+ for(const op of ops){if(op.type!=="vente")continue;const name=String(op.produit||"غير محدد");products[name]=(products[name]||0)+(Number(op.total)||0)}
+ const top=Object.entries(products).sort((a,b)=>b[1]-a[1]).slice(0,5);
+ const maxProduct=Math.max(1,...top.map(x=>x[1]));
+ const productChart=$("bilanProductsChart");
+ if(productChart)productChart.innerHTML=top.length?top.map(([name,value])=>'<div class="chart-row"><span class="chart-label" title="'+esc(name)+'">'+esc(name)+'</span><div class="chart-bars"><div class="chart-bar-track"><div class="chart-bar sales" style="width:'+Math.max(0,value/maxProduct*100)+'%"></div></div><div class="chart-value">'+money(value)+'</div></div></div>').join(""):'<div class="chart-empty">لا توجد مبيعات مسجلة لعرض المنتجات</div>';
+}
+
 function renderBilan(){
+ renderBilanCharts();
  const d=state.data, ops=d.operations||[];
  const ventes=ops.filter(x=>x.type==="vente"), achats=ops.filter(x=>x.type==="achat");
  const total=list=>list.reduce((s,x)=>s+(Number(x.total)||0),0);

@@ -64,7 +64,8 @@ function renderBilan(){
  renderBilanCharts(ops);
  const ventes=ops.filter(x=>x.type==="vente"),achats=ops.filter(x=>x.type==="achat");
  const total=list=>list.reduce((s,x)=>s+(Number(x.total)||0),0);
- const totalV=total(ventes),totalA=total(achats);\n const expenses=(d.expenses||[]).filter(x=>{const date=String(x.date||"");const from=$("bilanFrom")?.value||"",to=$("bilanTo")?.value||"";return (!from||date>=from)&&(!to||date<=to)});\n const totalE=expenses.reduce((s,x)=>s+(Number(x.amount)||0),0);
+ const totalV=total(ventes),totalA=total(achats);
+ const expenses=(d.expenses||[]).filter(x=>{const date=String(x.date||"");const from=$("bilanFrom")?.value||"",to=$("bilanTo")?.value||"";return (!from||date>=from)&&(!to||date<=to)});\n const totalE=expenses.reduce((s,x)=>s+(Number(x.amount)||0),0);
  const stockValue=(d.produits||[]).reduce((s,p)=>s+Math.max(0,Number(p.stock)||0)*(Number(p.prix)||0),0);
  $("bilanTotalVentes").textContent=money(totalV);$("bilanTotalAchats").textContent=money(totalA);
  $("bilanBenefice").textContent=money(totalV-totalA-totalE);$("bilanValeurStock").textContent=money(stockValue);
@@ -74,7 +75,9 @@ function renderBilan(){
    "<tr><td>مجموع المبيعات خلال الفترة</td><td><strong>"+money(totalV)+"</strong></td></tr>",
    "<tr><td>مجموع المشتريات خلال الفترة</td><td><strong>"+money(totalA)+"</strong></td></tr>",
    "<tr><td>الفرق بين المبيعات والمشتريات (قبل المصاريف)</td><td><strong>"+money(totalV-totalA)+"</strong></td></tr>",
-   "<tr><td>المصاريف خلال الفترة</td><td><strong>"+money(totalE)+"</strong></td></tr>",\n   "<tr><td>القيمة التقديرية الحالية للمخزون</td><td><strong>"+money(stockValue)+"</strong></td></tr>",
+   "<tr><td>المصاريف خلال الفترة</td><td><strong>"+money(totalE)+"</strong></td></tr>",
+   "<tr><td>الصافي التقديري بعد المصاريف</td><td><strong>"+money(totalV-totalA-totalE)+"</strong></td></tr>",
+   "<tr><td>القيمة التقديرية الحالية للمخزون</td><td><strong>"+money(stockValue)+"</strong></td></tr>",
    "<tr><td>عدد عمليات البيع</td><td>"+ventes.length+"</td></tr>",
    "<tr><td>عدد عمليات الشراء</td><td>"+achats.length+"</td></tr>"
   ]);

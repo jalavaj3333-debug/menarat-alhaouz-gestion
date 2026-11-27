@@ -249,6 +249,48 @@ $("bilanType").addEventListener("change",renderBilan);["bilanFrom","bilanTo"].fo
 $("addProductBtn").onclick=async()=>{const name=prompt("اسم المنتج");if(!name?.trim())return;const unit=prompt("الوحدة (مثلاً kg, pièce)")||"";const price=Number(prompt("ثمن البيع")||0);const stock=Number(prompt("المخزون الأولي")||0);if(!Number.isFinite(price)||price<0||!Number.isFinite(stock)||stock<0)return toast("المعطيات غير صحيحة");try{await api("/admin/products",{method:"POST",body:JSON.stringify({name,unit,price,stock})});await loadState();toast("تمت إضافة المنتج")}catch(e){toast(e.message)}};
 $("addEmployeeBtn").onclick=()=>addNamed("employees");$("addZoneBtn").onclick=()=>addNamed("zones");$("addSupplierBtn").onclick=()=>addNamed("suppliers");
 $("saleForm").addEventListener("submit",async e=>{e.preventDefault();const type=$("saleType").value;const rows=[...document.querySelectorAll(".sale-line")];const lines=rows.map(r=>({product:r.querySelector(".line-product").value,quantity:Number(r.querySelector(".line-qty").value),price:Number(r.querySelector(".line-price").value)}));if(!lines.length||lines.some(x=>!x.product||!Number.isFinite(x.quantity)||x.quantity<=0))return toast("تأكد من تفاصيل المنتجات");const payload={type,date:$("saleDate").value,lines,zone:$("saleZone").value,supplier:$("saleSupplier").value,employeeName:$("saleEmployee").value,payment:$("salePayment").value};try{await api("/sales",{method:"POST",body:JSON.stringify(payload)});$("saleLines").innerHTML="";addSaleLine();await loadState();toast("تسجلات العملية بنجاح");go("history")}catch(err){toast(err.message)}});
+
+let invoiceOcrWorker=null,invoiceDraft=[];
+function invoiceLoadScript(src,key){return new Promise((resolve,reject)=>{if(window[key])return resolve(window[key]);let s=document.querySelector('script[data-invoice-lib="'+key+'"]');if(s){s.addEventListener("load",()=>resolve(window[key]),{once:true});s.addEventListener("error",reject,{once:true});return} s=document.createElement("script");s.src=src;s.async=true;s.dataset.invoiceLib=key;s.onload=()=>window[key]?resolve(window[key]):reject(new Error("تعذر تحميل مكتبة القراءة"));s.onerror=()=>reject(new Error("تعذر تحميل المكتبة؛ تحقق من الإنترنت"));document.head.append(s)})}
+async function invoiceWorker(){if(invoiceOcrWorker)return invoiceOcrWorker;await invoiceLoadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js","Tesseract");invoiceOcrWorker=await Tesseract.createWorker("ara+fra+eng",1,{logger:m=>{if(m.status==="recognizing text")$("invoiceScanStatus").textContent="جاري قراءة الفاتورة... "+Math.round((m.progress||0)*100)+"%"}});return invoiceOcrWorker}
+function invoiceParse(text){
+ const out=[],lines=text.split(/\r?\n/).map(x=>x.replace(/\s+/g," ").trim()).filter(x=>x.length>3);
+ const norm=s=>String(s||"").toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\p{L}\p{N}]+/gu,"");
+ for(const line of lines){const ms=[...line.matchAll(/\d+(?:[.,]\d{1,3})?/g)];if(ms.length<2)continue;const nums=ms.map(m=>Number(m[0].replace(",","."))),last=nums.slice(-3);let q,p;
+ if(last.length===3&&Math.abs(last[0]*last[1]-last[2])<Math.max(2,last[2]*.04)){q=last[0];p=last[1]}else{q=last[last.length-2];p=last[last.length-1]}
+ if(!(q>0&&q<=100000&&p>=0&&p<=100000000))continue;
+ const name=line.slice(0,ms[ms.length-last.length].index).replace(/[.,،:;\-]+$/,"").trim();if(name.length<2)continue;
+ const product=state.data.produits.find(x=>norm(x.nom)===norm(name))||state.data.produits.find(x=>norm(name).includes(norm(x.nom))||norm(x.nom).includes(norm(name)));
+ out.push({raw:line,product:product?.nom||"",quantity:q,price:p});
+ }return out
+}
+function invoiceRenderReview(){
+ const target=$("invoiceReviewRows");target.innerHTML="";
+ invoiceDraft.forEach((x,i)=>{const row=document.createElement("div");row.className="invoice-review-row";row.innerHTML='<select data-ip="'+i+'"><option value="">— اختر المنتج —</option>'+state.data.produits.map(p=>'<option value="'+esc(p.nom)+'" '+(p.nom===x.product?'selected':'')+'>'+esc(p.nom)+'</option>').join("")+'</select><input type="number" min=".01" step=".01" aria-label="الكمية" data-iq="'+i+'" value="'+esc(x.quantity)+'"><input type="number" min="0" step=".01" aria-label="ثمن الوحدة" data-iv="'+i+'" value="'+esc(x.price)+'"><small>'+esc(x.raw)+'</small>';target.append(row)});
+ $("invoiceReview").classList.toggle("hidden",!invoiceDraft.length)
+}
+async function invoiceScan(){
+ const file=$("invoiceFile").files[0];if(!file)return toast("اختار صورة أو PDF أولاً");if(file.size>12*1024*1024)return toast("الحد الأقصى لحجم الملف هو 12 MB");
+ const btn=$("scanInvoiceBtn");btn.disabled=true;
+ try{const worker=await invoiceWorker();let text="";
+ if(file.type==="application/pdf"||file.name.toLowerCase().endsWith(".pdf")){
+  await invoiceLoadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js","pdfjsLib");
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise,pages=Math.min(pdf.numPages,5);
+  for(let n=1;n<=pages;n++){$("invoiceScanStatus").textContent="قراءة الصفحة "+n+" من "+pages;const page=await pdf.getPage(n),vp=page.getViewport({scale:1.5}),canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;text+="\n"+(await worker.recognize(canvas)).data.text;canvas.width=canvas.height=1}
+  if(pdf.numPages>5)toast("تمت قراءة أول 5 صفحات فقط");
+ }else{text=(await worker.recognize(file)).data.text}
+ invoiceDraft=invoiceParse(text);invoiceRenderReview();$("invoiceScanStatus").textContent=invoiceDraft.length?"تم استخراج "+invoiceDraft.length+" سطر محتمل. راجعها قبل الاعتماد.":"لم نتعرف على سطور واضحة؛ جرب صورة أوضح أو أدخل العملية يدوياً.";
+ }catch(e){$("invoiceScanStatus").textContent=e.message||"وقع خطأ أثناء القراءة"}finally{btn.disabled=false}
+}
+$("scanInvoiceBtn").addEventListener("click",invoiceScan);
+$("applyInvoiceLines").addEventListener("click",()=>{
+ const rows=[...$("invoiceReviewRows").querySelectorAll(".invoice-review-row")],items=rows.map(r=>({product:r.querySelector("[data-ip]").value,quantity:Number(r.querySelector("[data-iq]").value),price:Number(r.querySelector("[data-iv]").value)}));
+ if(!items.length||items.some(x=>!x.product||!Number.isFinite(x.quantity)||x.quantity<=0||!Number.isFinite(x.price)||x.price<0))return toast("راجع المنتج والكمية والثمن في كل سطر");
+ $("saleLines").innerHTML="";items.forEach(x=>{addSaleLine();const r=$("saleLines").lastElementChild;r.querySelector(".line-product").value=x.product;r.querySelector(".line-product").dispatchEvent(new Event("change"));r.querySelector(".line-qty").value=x.quantity;r.querySelector(".line-price").value=x.price});
+ $("saleType").value="achat";updateSaleType();calcTotal();$("invoiceReview").classList.add("hidden");toast("تضافو السطور للنموذج. راجع المورد والتاريخ ثم اضغط حفظ العملية.")
+});
+$("saleType").addEventListener("change",()=>{$("invoiceImport").classList.toggle("hidden",$("saleType").value!=="achat"||!isAdmin())});
+
 const today=new Date();$("expenseDate").value=[today.getFullYear(),String(today.getMonth()+1).padStart(2,"0"),String(today.getDate()).padStart(2,"0")].join("-");$("saleDate").value=[today.getFullYear(),String(today.getMonth()+1).padStart(2,"0"),String(today.getDate()).padStart(2,"0")].join("-");
 initTheme();
 (async()=>{try{const me=await api("/me");state.user=me.user;if(state.user)showApp();else showLogin()}catch{showLogin()}})();

@@ -177,13 +177,16 @@ async function handle(request, env) {
   if (!user) return json({ error: "Authentication required" }, 401);
 
   if (path === "/api/state" && request.method === "GET") {
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS debts (id TEXT PRIMARY KEY, type TEXT NOT NULL, person TEXT NOT NULL, total_amount REAL NOT NULL, paid_amount REAL NOT NULL DEFAULT 0, due_date TEXT, notes TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS debt_payments (id TEXT PRIMARY KEY, debt_id TEXT NOT NULL, amount REAL NOT NULL, payment_date TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS expenses (id TEXT PRIMARY KEY, expense_date TEXT NOT NULL, category TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', amount REAL NOT NULL CHECK(amount > 0), created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
-    const [products, employees, zones, suppliers, expenses, invoices] = await Promise.all([
+    const [products, employees, zones, suppliers, expenses, debts, invoices] = await Promise.all([
       env.DB.prepare("SELECT id, name AS nom, unit AS unite, price AS prix, opening_stock AS stockInitial, current_stock AS stock, supplier_name AS fournisseur FROM products WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM employees WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM zones WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name AS nom, phone AS tel FROM suppliers WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id,expense_date AS date,category,description,amount,created_by FROM expenses WHERE active=1 ORDER BY expense_date DESC,created_at DESC").all(),
+      env.DB.prepare("SELECT d.*, COALESCE((SELECT SUM(p.amount) FROM debt_payments p WHERE p.debt_id=d.id),0) AS payments_total FROM debts d WHERE d.active=1 ORDER BY d.created_at DESC").all(),
       env.DB.prepare("SELECT i.*, l.id AS line_id, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id WHERE (? = 'admin' OR i.employee_user_id = ?) ORDER BY i.operation_date DESC").bind(user.role, user.id).all()
     ]);
     const operations = (invoices.results || []).filter(row => row.produit).map(row => ({
@@ -196,7 +199,7 @@ async function handle(request, env) {
       user: { id: user.id, email: user.email, displayName: user.display_name, role: user.role },
       produits: products.results || [], employes: employees.results || [],
       zones: zones.results || [], fournisseurs: suppliers.results || [],
-      operations, expenses: expenses.results || [], panier: []
+      operations, expenses: expenses.results || [], debts: debts.results || [], panier: []
     });
   }
 
@@ -219,6 +222,40 @@ async function handle(request, env) {
     return Number(result.meta?.changes||0)===1 ? json({ok:true}) : json({error:"المصروف غير موجود"},404);
   }
 
+  if (path === "/api/debts" && request.method === "POST") {
+    if (!requireAdmin(user)) return json({ error: "Admin permission required" }, 403);
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
+    const data = await body(request);
+    const type = data.type === "payable" ? "payable" : data.type === "receivable" ? "receivable" : "";
+    const person = clean(data.person, 140), total = Number(data.total), paid = Number(data.paid || 0);
+    const dueDate = clean(data.dueDate || "", 10), notes = clean(data.notes || "", 500);
+    if (!type || !person || !Number.isFinite(total) || total <= 0 || total > 100000000 || !Number.isFinite(paid) || paid < 0 || paid > total || (dueDate && !validDate(dueDate))) return json({ error: "تأكد من نوع الدين والاسم والمبالغ والتاريخ" }, 400);
+    const id = crypto.randomUUID();
+    await env.DB.prepare("INSERT INTO debts(id,type,person,total_amount,paid_amount,due_date,notes,created_by) VALUES(?,?,?,?,?,?,?,?)").bind(id,type,person,total,paid,dueDate,notes,user.display_name).run();
+    if (paid > 0) await env.DB.prepare("INSERT INTO debt_payments(id,debt_id,amount,payment_date,note,created_by) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(),id,paid,new Date().toISOString().slice(0,10),"دفعة أولية",user.display_name).run();
+    return json({ ok: true, id }, 201);
+  }
+  if (path.startsWith("/api/debts/") && path.endsWith("/payment") && request.method === "POST") {
+    if (!requireAdmin(user)) return json({ error: "Admin permission required" }, 403);
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
+    const id = path.split("/").filter(Boolean)[2] || "";
+    const data = await body(request), amount = Number(data.amount), date = clean(data.date, 10), note = clean(data.note || "", 240);
+    if (!Number.isFinite(amount) || amount <= 0 || !validDate(date)) return json({ error: "تأكد من مبلغ وتاريخ الأداء" }, 400);
+    const debt = await env.DB.prepare("SELECT total_amount,paid_amount FROM debts WHERE id=? AND active=1").bind(id).first();
+    if (!debt) return json({ error: "الدين غير موجود" }, 404);
+    if (amount > Number(debt.total_amount)-Number(debt.paid_amount)) return json({ error: "مبلغ الأداء أكبر من المبلغ المتبقي" }, 400);
+    const result = await env.DB.prepare("UPDATE debts SET paid_amount=paid_amount+? WHERE id=? AND active=1 AND paid_amount=?").bind(amount,id,debt.paid_amount).run();
+    if (Number(result.meta?.changes || 0) !== 1) return json({ error: "تغيرت بيانات الدين، أعد المحاولة" }, 409);
+    await env.DB.prepare("INSERT INTO debt_payments(id,debt_id,amount,payment_date,note,created_by) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(),id,amount,date,note,user.display_name).run();
+    return json({ ok: true });
+  }
+  if (path.startsWith("/api/debts/") && request.method === "DELETE") {
+    if (!requireAdmin(user)) return json({ error: "Admin permission required" }, 403);
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
+    const id = path.split("/").filter(Boolean)[2] || "";
+    const result = await env.DB.prepare("UPDATE debts SET active=0 WHERE id=? AND active=1").bind(id).run();
+    return Number(result.meta?.changes || 0) === 1 ? json({ ok: true }) : json({ error: "الدين غير موجود" }, 404);
+  }
   if (path === "/api/sales" && request.method === "POST") {
     if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
     const data = await body(request);

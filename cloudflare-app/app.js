@@ -1,7 +1,7 @@
 /* Independent Cloudflare edition. API is expected on the same host under /api.
    It does not load Firebase SDKs or read Firebase data. */
 const API = "/api";
-const state = { user:null, data:{ produits:[], employes:[], zones:[], fournisseurs:[], operations:[] } };
+const state = { user:null, data:{ produits:[], employes:[], zones:[], fournisseurs:[], operations:[], expenses:[], debts:[] } };
 const $ = id => document.getElementById(id);
 const money = n => (Number(n)||0).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" DH";
 const esc = value => String(value ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));

@@ -45,6 +45,7 @@
         <div class="nav-group-label admin-only">الإدارة والمالية</div>
         <button class="nav-item admin-only" data-page="expenses">د.م <span>المصاريف</span></button>
         <button class="nav-item admin-only" data-page="debts">د.ي <span>الديون</span></button>
+        <button class="nav-item admin-only" data-page="customers">♙ <span>الزبائن</span></button>
         <button class="nav-item admin-only" data-page="bilan">▥ <span>التقارير والحصيلة</span></button>
         <div class="nav-group-label admin-only">إعدادات النشاط</div>
         <button class="nav-item admin-only" data-page="employees">♙ <span>الموظفون</span></button>
@@ -124,6 +125,7 @@
           <div id="invoiceImport" class="wide invoice-import admin-only hidden"><div class="invoice-import-head"><div><h4>📷 استيراد فاتورة بالتصوير أو PDF</h4><p class="muted">ارفع الفاتورة، راجع السطور المستخرجة، ثم أضفها للمشتريات بعد التأكيد.</p></div><span class="invoice-ai-tag">OCR</span></div><div class="invoice-upload-row"><input id="invoiceFile" type="file" accept="image/*,.pdf,application/pdf"><button id="scanInvoiceBtn" type="button" class="outline">استخراج بيانات الفاتورة</button></div><p id="invoiceScanStatus" class="muted" aria-live="polite">الحد الأقصى 12 MB. يلزم اتصال بالإنترنت لتحميل محرك القراءة عند أول استعمال.</p><div id="invoiceReview" class="invoice-review hidden"><div class="invoice-review-title"><strong>راجع السطور المستخرجة</strong><span class="muted">صحح المنتج والكمية والثمن</span></div><div id="invoiceReviewRows" class="invoice-review-rows"></div><div class="invoice-review-actions"><button id="applyInvoiceLines" type="button" class="primary">إضافة السطور إلى نموذج الشراء</button></div></div></div><div><label>نوع العملية</label><select id="saleType"><option value="vente">بيع</option><option value="achat" class="admin-only">شراء</option></select></div>
           <div><label>التاريخ</label><input id="saleDate" type="date" required></div>
           <div id="zoneField"><label>المنطقة</label><select id="saleZone" required></select></div>
+          <div id="saleCustomerField"><label>الزبون (اختياري)</label><select id="saleCustomer"><option value="">زبون غير محدد</option></select></div>
           <div id="supplierField" class="hidden"><label>المورد</label><select id="saleSupplier"></select></div>
           <div id="employeeField" class="hidden"><label>الموظف</label><select id="saleEmployee"></select></div>
           <div><label>حالة الأداء</label><select id="salePayment"><option>Payé</option><option>Crédit</option><option>Partiel</option></select></div>
@@ -165,6 +167,21 @@
           <div class="wide"><button class="primary" type="submit">＋ تسجيل الدين</button></div>
         </form></div>
         <div class="panel table-wrap" id="debtsTable"></div>
+      </section>
+      <section id="page-customers" class="page hidden">
+        <div class="section-heading"><div><h3>إدارة الزبائن</h3><p>سجل بيانات الزبائن واستعملها مباشرة عند تسجيل عمليات البيع.</p></div></div>
+        <div class="panel form-panel">
+          <form id="customerForm" class="form-grid">
+            <div><label for="customerName">اسم الزبون</label><input id="customerName" maxlength="120" required placeholder="الاسم الكامل أو اسم الشركة"></div>
+            <div><label for="customerPhone">رقم الهاتف</label><input id="customerPhone" maxlength="40" type="tel" placeholder="رقم التواصل"></div>
+            <div><label for="customerAddress">العنوان</label><input id="customerAddress" maxlength="240" placeholder="المدينة أو العنوان"></div>
+            <div><label for="customerNotes">ملاحظات</label><input id="customerNotes" maxlength="500" placeholder="معلومات إضافية (اختياري)"></div>
+            <div class="wide"><button class="primary" type="submit">＋ إضافة الزبون</button></div>
+          </form>
+        </div>
+        <div class="toolbar"><input id="customerSearch" type="search" placeholder="بحث باسم الزبون أو الهاتف أو العنوان..."></div>
+        <div class="stats-grid"><article class="stat-card"><span>عدد الزبائن المسجلين</span><strong id="customersCount">0</strong></article></div>
+        <div class="panel table-wrap" id="customersTable"></div>
       </section>
       <section id="page-bilan" class="page hidden">
         <div class="section-heading"><div><h3>الحصيلة العامة Bilan</h3><p>ملخص المبيعات والمشتريات وقيمة المخزون، مع تحليل حسب الشهر والموظف والمنطقة والمنتج والمورد</p></div></div>

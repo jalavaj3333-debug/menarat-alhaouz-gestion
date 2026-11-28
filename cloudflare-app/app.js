@@ -220,6 +220,18 @@ function renderCash(){
   return '<tr><td>'+esc(x.date)+'</td><td>'+label+'</td><td>'+esc(x.category||"—")+'</td><td>'+esc(x.description||"—")+'</td><td><strong>'+amount+'</strong></td><td>'+esc(x.created_by)+'</td><td><button class="danger" data-delete-cash="'+esc(x.id)+'">حذف</button></td></tr>';
  }));
 }
+async function deleteInvoice(id){
+ const invoice=(state.data.operations||[]).find(x=>String(x.factureId)===String(id));
+ if(!invoice)return toast("العملية غير موجودة");
+ const ref=invoice.invoiceRef||invoice.factureId;
+ const type=invoice.type==="achat"?"الشراء":"البيع";
+ if(!confirm("واش متأكد من حذف "+type+" رقم "+ref+"؟\\nسيتم تعديل المخزون تلقائياً حسب نوع العملية."))return;
+ try{
+  await api("/invoices/"+encodeURIComponent(id),{method:"DELETE"});
+  await loadState();
+  toast("تم حذف العملية وتعديل المخزون بنجاح");
+ }catch(e){toast(e.message)}
+}
 async function deleteCashMovement(id){
  if(!confirm("واش متأكد من حذف هاد الحركة من سجل الصندوق؟"))return;
  try{await api("/cash-transactions/"+encodeURIComponent(id),{method:"DELETE"});await loadState();toast("تم حذف حركة الصندوق")}catch(e){toast(e.message)}
@@ -265,7 +277,13 @@ function renderHistory(){
   const ops=getFilteredOperations();
   const total=ops.reduce((sum,x)=>sum+(Number(x.total)||0),0);
   $("historySummary").textContent=ops.length+" سطر من العمليات — المجموع: "+money(total);
-  $("historyTable").innerHTML=table(["التاريخ","رقم الفاتورة","النوع","الزبون","الموظف / المورد","المنطقة","المنتج","الكمية","المجموع"],ops.map(x=>'<tr><td>'+esc(x.date)+'</td><td>'+esc(x.invoiceRef||x.factureId)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.customer||"—")+'</td><td>'+esc(x.employe||x.fournisseur||"—")+'</td><td>'+esc(x.zone||"—")+'</td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td></tr>'));
+  const shownInvoices=new Set();
+  $("historyTable").innerHTML=table(["التاريخ","رقم الفاتورة","النوع","الزبون","الموظف / المورد","المنطقة","المنتج","الكمية","المجموع",...(isAdmin()?["الإجراء"]:[])],ops.map(x=>{
+    const first=!shownInvoices.has(String(x.factureId));
+    shownInvoices.add(String(x.factureId));
+    const action=isAdmin()&&first?'<button class="danger" data-delete-invoice="'+esc(x.factureId)+'">حذف العملية</button>':(isAdmin()?"—":"");
+    return '<tr><td>'+esc(x.date)+'</td><td>'+esc(x.invoiceRef||x.factureId)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.customer||"—")+'</td><td>'+esc(x.employe||x.fournisseur||"—")+'</td><td>'+esc(x.zone||"—")+'</td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td>'+(isAdmin()?'<td>'+action+'</td>':"")+'</tr>';
+  }));
 }
 function renderCustomers(){
  const list=state.data.customers||[];
@@ -352,7 +370,7 @@ $("downloadBackupBtn")?.addEventListener("click",async()=>{
 });
 $("markAllNotificationsRead")?.addEventListener("click",()=>{const stored=readNotificationState();for(const item of buildNotifications())if(!stored.read.includes(item.id))stored.read.push(item.id);saveNotificationState(stored);renderNotifications();toast("تم تعليم جميع الإشعارات كمقروءة")});
 document.querySelectorAll("[data-notification-filter]").forEach(btn=>btn.addEventListener("click",()=>{notificationFilter=btn.dataset.notificationFilter;document.querySelectorAll("[data-notification-filter]").forEach(x=>x.classList.toggle("active",x===btn));renderNotifications()}));
-document.addEventListener("click",e=>{const notifRead=e.target.closest("[data-notification-read]");if(notifRead)updateNotificationState(notifRead.dataset.notificationRead,"read");const notifDismiss=e.target.closest("[data-notification-dismiss]");if(notifDismiss)updateNotificationState(notifDismiss.dataset.notificationDismiss,"dismiss");const notifGo=e.target.closest("[data-notification-go]");if(notifGo){const item=buildNotifications().find(x=>x.action===notifGo.dataset.notificationGo&&x.id);if(item)updateNotificationState(item.id,"read");go(notifGo.dataset.notificationGo)}const customerEdit=e.target.closest("[data-edit-customer]");if(customerEdit)editCustomer(customerEdit.dataset.editCustomer);const pay=e.target.closest("[data-debt-pay]");if(pay)addDebtPayment(pay.dataset.debtPay);const debt=e.target.closest("[data-debt-delete]");if(debt)deleteDebt(debt.dataset.debtDelete);const expense=e.target.closest("[data-delete-expense]");if(expense)deleteExpense(expense.dataset.deleteExpense);const cash=e.target.closest("[data-delete-cash]");if(cash)deleteCashMovement(cash.dataset.deleteCash);const b=e.target.closest("[data-go]");if(b)go(b.dataset.go);const edit=e.target.closest("[data-edit-product]");if(edit)editProduct(edit.dataset.editProduct);const del=e.target.closest("[data-delete]");if(del)deleteItem(del)});
+document.addEventListener("click",e=>{const notifRead=e.target.closest("[data-notification-read]");if(notifRead)updateNotificationState(notifRead.dataset.notificationRead,"read");const notifDismiss=e.target.closest("[data-notification-dismiss]");if(notifDismiss)updateNotificationState(notifDismiss.dataset.notificationDismiss,"dismiss");const notifGo=e.target.closest("[data-notification-go]");if(notifGo){const item=buildNotifications().find(x=>x.action===notifGo.dataset.notificationGo&&x.id);if(item)updateNotificationState(item.id,"read");go(notifGo.dataset.notificationGo)}const customerEdit=e.target.closest("[data-edit-customer]");if(customerEdit)editCustomer(customerEdit.dataset.editCustomer);const pay=e.target.closest("[data-debt-pay]");if(pay)addDebtPayment(pay.dataset.debtPay);const debt=e.target.closest("[data-debt-delete]");if(debt)deleteDebt(debt.dataset.debtDelete);const invoiceDelete=e.target.closest("[data-delete-invoice]");if(invoiceDelete)deleteInvoice(invoiceDelete.dataset.deleteInvoice);const expense=e.target.closest("[data-delete-expense]");if(expense)deleteExpense(expense.dataset.deleteExpense);const cash=e.target.closest("[data-delete-cash]");if(cash)deleteCashMovement(cash.dataset.deleteCash);const b=e.target.closest("[data-go]");if(b)go(b.dataset.go);const edit=e.target.closest("[data-edit-product]");if(edit)editProduct(edit.dataset.editProduct);const del=e.target.closest("[data-delete]");if(del)deleteItem(del)});
 function exportHistoryCSV(){
   const rows=[["التاريخ","رقم الفاتورة","النوع","الموظف","المورد","المنطقة","المنتج","الوحدة","الكمية","ثمن الوحدة","المجموع","الأداء"]];
   const operations=[...getFilteredOperations()].sort((a,b)=>String(a.date).localeCompare(String(b.date)));

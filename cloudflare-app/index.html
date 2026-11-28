@@ -47,6 +47,7 @@
         <button class="nav-item admin-only" data-page="debts">د.ي <span>الديون</span></button>
         <button class="nav-item admin-only" data-page="cash">د.ن <span>الصندوق النقدي</span></button>
         <button class="nav-item" data-page="notifications">🔔 <span>مركز الإشعارات</span><span id="navNotificationCount" class="notification-nav-count hidden">0</span></button>
+        <button class="nav-item admin-only" data-page="backups">💾 <span>النسخ الاحتياطي</span></button>
         <button class="nav-item admin-only" data-page="customers">♙ <span>الزبائن</span></button>
         <button class="nav-item admin-only" data-page="bilan">▥ <span>التقارير والحصيلة</span></button>
         <div class="nav-group-label admin-only">إعدادات النشاط</div>
@@ -198,6 +199,15 @@
         <div class="notification-filters"><button type="button" class="notification-filter active" data-notification-filter="all">الكل</button><button type="button" class="notification-filter" data-notification-filter="unread">غير المقروءة</button></div>
         <div id="notificationsList" class="notifications-list"></div>
         <p class="muted notification-note">يتم حفظ حالة القراءة والحذف على هذا الجهاز والمتصفح فقط.</p>
+      </section>
+      <section id="page-backups" class="page hidden admin-only">
+        <div class="section-heading"><div><h3>النسخ الاحتياطي</h3><p>حمّل نسخة JSON من بيانات النشاط واحفظها في مكان آمن خارج الجهاز.</p></div></div>
+        <div class="panel form-panel backup-panel">
+          <div class="backup-intro"><span class="backup-icon">💾</span><div><h4>نسخة احتياطية كاملة للبيانات التشغيلية</h4><p class="muted">تشمل المنتجات والمخزون والموظفين والمناطق والموردين والفواتير والزبائن والمصاريف والديون والصندوق.</p></div></div>
+          <div class="backup-actions"><button id="downloadBackupBtn" class="primary" type="button">⬇ تحميل النسخة الاحتياطية</button><span id="backupStatus" class="muted" aria-live="polite">آخر نسخة: لم يتم التحميل بعد</span></div>
+          <div class="backup-warning"><strong>مهم:</strong> احتفظ بنسخة في جهازك ونسخة ثانية في مكان آمن. لا تشارك الملف لأنه يحتوي على بيانات النشاط. حسابات الدخول والجلسات لا تدخل ضمن النسخة.</div>
+          <p class="muted backup-note">الاسترجاع غير مفعّل في هذه المرحلة حتى نختبرو صيغة النسخ والتحقق من سلامة البيانات، لتفادي استبدال أو فقدان معلومات مسجلة.</p>
+        </div>
       </section>
       <section id="page-customers" class="page hidden">
         <div class="section-heading"><div><h3>إدارة الزبائن</h3><p>سجل بيانات الزبائن واستعملها مباشرة عند تسجيل عمليات البيع.</p></div></div>

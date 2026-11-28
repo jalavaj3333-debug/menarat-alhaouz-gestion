@@ -719,3 +719,15 @@ footer{font-size:10px}
 [data-theme="dark"] .invoice-ai-tag{background:#493b26;color:#f0d29b}[data-theme="dark"] .invoice-upload-row input,[data-theme="dark"] .invoice-review-row{background:#202d40;color:#e8edf5;border-color:#43516a}
 [data-theme="dark"] .invoice-review-row select,[data-theme="dark"] .invoice-review-row input{background:#172235;color:#f2f5fa;border-color:#4a5870}
 @media(max-width:720px){.invoice-review-row{grid-template-columns:1fr 1fr}.invoice-review-row select{grid-column:1/-1}.invoice-upload-row{display:grid}.invoice-upload-row button{width:100%}}
+
+
+/* Invoice OCR: make the recognized product name explicit */
+.invoice-review-row{grid-template-columns:minmax(190px,1.5fr) minmax(190px,1.5fr) minmax(85px,.65fr) minmax(100px,.8fr)}
+.invoice-detected-name{grid-column:1/-1;display:flex;flex-direction:column;gap:3px;padding:8px 10px;border-radius:8px;background:#f5f0e5;border:1px solid #e8dcc4}
+.invoice-detected-name span{font-size:10px;color:var(--muted)}
+.invoice-detected-name strong{font-size:13px;color:var(--text);overflow-wrap:anywhere}
+.invoice-review-row>label{font-size:10px;align-self:end;color:var(--muted)}
+.invoice-review-row small{grid-column:1/-1}
+[data-theme="dark"] .invoice-detected-name{background:#303044;border-color:#5a536c}
+[data-theme="dark"] .invoice-detected-name strong{color:#f2f3f8}
+@media(max-width:720px){.invoice-review-row{grid-template-columns:1fr 1fr}.invoice-detected-name,.invoice-review-row>label,.invoice-review-row select,.invoice-review-row small{grid-column:1/-1}}

@@ -412,8 +412,8 @@ function productImportParse(text,ocrLines=[]){
  // Prefer OCR geometry: use the table's own header to locate the name and price columns.
  const lines=(ocrLines||[]).filter(x=>x&&Array.isArray(x.words)&&x.words.length);
  const normHead=s=>keyOf(toLatin(s));
- const isNameHead=s=>/(designation|designe|produit|product|article|item|libelle|nom|اسم|المنتج|السلعة|الصنف)/i.test(s);
- const isPriceHead=s=>/(prix|price|tarif|vente|achat|ثمن|السعر|الثمن|دراهم|dh)/i.test(s);
+ const isNameHead=s=>/(designation|designe|produit|product|article|item|libelle|nom|اسم|المنتج|السلعة|الصنف)/i.test(keyOf(s));
+ const isPriceHead=s=>/(prix|price|tarif|vente|achat|ثمن|السعر|الثمن|دراهم|dh)/i.test(keyOf(s));
  let header=null;
  for(const line of lines){
   const words=line.words.filter(w=>w.text&&w.bbox&&Number.isFinite(w.bbox.x0)&&Number.isFinite(w.bbox.x1));

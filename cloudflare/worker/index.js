@@ -181,6 +181,7 @@ async function handle(request, env) {
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS debt_payments (id TEXT PRIMARY KEY, debt_id TEXT NOT NULL, amount REAL NOT NULL, payment_date TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS expenses (id TEXT PRIMARY KEY, expense_date TEXT NOT NULL, category TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', amount REAL NOT NULL CHECK(amount > 0), created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS customers (id TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS cash_transactions (id TEXT PRIMARY KEY, movement_type TEXT NOT NULL CHECK(movement_type IN ('opening','income','expense')), movement_date TEXT NOT NULL, category TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '', amount REAL NOT NULL CHECK(amount > 0), created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
     try { await env.DB.prepare("ALTER TABLE invoices ADD COLUMN customer_name TEXT NOT NULL DEFAULT ''").run(); }
     catch (error) { if (!/duplicate column/i.test(String(error?.message || error))) throw error; }
     const [products, employees, zones, customers, suppliers, expenses, debts, invoices] = await Promise.all([
@@ -193,6 +194,7 @@ async function handle(request, env) {
       env.DB.prepare("SELECT d.*, COALESCE((SELECT SUM(p.amount) FROM debt_payments p WHERE p.debt_id=d.id),0) AS payments_total FROM debts d WHERE d.active=1 ORDER BY d.created_at DESC").all(),
       env.DB.prepare("SELECT i.*, l.id AS line_id, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id WHERE (? = 'admin' OR i.employee_user_id = ?) ORDER BY i.operation_date DESC").bind(user.role, user.id).all()
     ]);
+    const cashTransactions = await env.DB.prepare("SELECT id,movement_type AS type,movement_date AS date,category,description,amount,created_by FROM cash_transactions WHERE active=1 ORDER BY movement_date DESC,created_at DESC").all();
     const operations = (invoices.results || []).filter(row => row.produit).map(row => ({
       id: row.line_id, factureId: row.id, invoiceRef: row.invoice_ref, date: row.operation_date, type: row.type,
       employe: row.employee_name, fournisseur: row.supplier_name, zone: row.zone_name, customer: row.customer_name || "",
@@ -203,7 +205,7 @@ async function handle(request, env) {
       user: { id: user.id, email: user.email, displayName: user.display_name, role: user.role },
       produits: products.results || [], employes: employees.results || [],
       zones: zones.results || [], fournisseurs: suppliers.results || [], customers: customers.results || [],
-      operations, expenses: expenses.results || [], debts: debts.results || [], panier: []
+      operations, expenses: expenses.results || [], debts: debts.results || [], cashTransactions: cashTransactions.results || [], panier: []
     });
   }
 
@@ -338,6 +340,31 @@ async function handle(request, env) {
     const invoiceCreated = Number(results?.[0]?.meta?.changes || 0) === 1;
     if (!invoiceCreated) return json({ error: "Insufficient stock or invoice could not be saved" }, 409);
     return json({ ok: true, invoiceId, invoiceRef, lines: lines.length }, 201);
+  }
+
+
+  if (path === "/api/cash-transactions" && request.method === "POST") {
+    if (!requireAdmin(user)) return json({ error: "Admin permission required" }, 403);
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS cash_transactions (id TEXT PRIMARY KEY, movement_type TEXT NOT NULL CHECK(movement_type IN ('opening','income','expense')), movement_date TEXT NOT NULL, category TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '', amount REAL NOT NULL CHECK(amount > 0), created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
+    const data = await body(request);
+    const type = ["opening","income","expense"].includes(data.type) ? data.type : "";
+    const date = clean(data.date,10), category = clean(data.category || "",80), description = clean(data.description || "",240), amount = Number(data.amount);
+    if (!type || !validDate(date) || !Number.isFinite(amount) || amount <= 0 || amount > 100000000) return json({ error: "تأكد من نوع الحركة والتاريخ والمبلغ" },400);
+    if (type === "opening") {
+      const existing = await env.DB.prepare("SELECT id FROM cash_transactions WHERE movement_type='opening' AND active=1 LIMIT 1").first();
+      if (existing) return json({ error: "تم تسجيل رصيد افتتاحي من قبل. استعمل حركة إيداع أو سحب لتعديل الصندوق." },409);
+    }
+    const id = crypto.randomUUID();
+    await env.DB.prepare("INSERT INTO cash_transactions(id,movement_type,movement_date,category,description,amount,created_by) VALUES(?,?,?,?,?,?,?)").bind(id,type,date,category,description,amount,user.display_name).run();
+    return json({ ok:true,id },201);
+  }
+  if (path.startsWith("/api/cash-transactions/") && request.method === "DELETE") {
+    if (!requireAdmin(user)) return json({ error: "Admin permission required" },403);
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" },403);
+    const id = path.split("/").filter(Boolean)[2] || "";
+    const result = await env.DB.prepare("UPDATE cash_transactions SET active=0 WHERE id=? AND active=1").bind(id).run();
+    return Number(result.meta?.changes||0)===1 ? json({ok:true}) : json({error:"حركة الصندوق غير موجودة"},404);
   }
 
   if (path.startsWith("/api/admin/")) {

@@ -270,18 +270,26 @@ function invoiceRenderReview(){
  $("invoiceReview").classList.toggle("hidden",!invoiceDraft.length)
 }
 async function invoiceScan(){
- const file=$("invoiceFile").files[0];if(!file)return toast("اختار صورة أو PDF أولاً");if(file.size>12*1024*1024)return toast("الحد الأقصى لحجم الملف هو 12 MB");
- const btn=$("scanInvoiceBtn");btn.disabled=true;
- try{const worker=await invoiceWorker();let text="";
+ const btn=$("scanInvoiceBtn"),status=$("invoiceScanStatus");
+ status.textContent="بدأت قراءة الفاتورة... المرجو الانتظار.";
+ const file=$("invoiceFile").files[0];
+ if(!file){status.textContent="اختار صورة أو ملف PDF أولاً.";toast("اختار صورة أو PDF أولاً");return}
+ if(file.size>12*1024*1024){status.textContent="الملف كبير؛ الحد الأقصى 12 MB.";toast("الحد الأقصى لحجم الملف هو 12 MB");return}
+ btn.disabled=true;btn.textContent="جاري التحميل والقراءة...";
+ try{
+  status.textContent="المرحلة 1/3: تحميل محرك قراءة الفاتورة لأول مرة...";
+  const worker=await invoiceWorker();let text="";
  if(file.type==="application/pdf"||file.name.toLowerCase().endsWith(".pdf")){
   await invoiceLoadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js","pdfjsLib");
   const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise,pages=Math.min(pdf.numPages,5);
   for(let n=1;n<=pages;n++){$("invoiceScanStatus").textContent="قراءة الصفحة "+n+" من "+pages;const page=await pdf.getPage(n),vp=page.getViewport({scale:1.5}),canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;text+="\n"+(await worker.recognize(canvas)).data.text;canvas.width=canvas.height=1}
   if(pdf.numPages>5)toast("تمت قراءة أول 5 صفحات فقط");
- }else{text=(await worker.recognize(file)).data.text}
- invoiceDraft=invoiceParse(text);invoiceRenderReview();$("invoiceScanStatus").textContent=invoiceDraft.length?"تم استخراج "+invoiceDraft.length+" سطر محتمل. راجعها قبل الاعتماد.":"لم نتعرف على سطور واضحة؛ جرب صورة أوضح أو أدخل العملية يدوياً.";
- }catch(e){$("invoiceScanStatus").textContent=e.message||"وقع خطأ أثناء القراءة"}finally{btn.disabled=false}
+ }else{status.textContent="المرحلة 2/3: قراءة الصورة...";text=(await worker.recognize(file)).data.text}
+ status.textContent="المرحلة 3/3: تحليل السطور...";
+ invoiceDraft=invoiceParse(text);invoiceRenderReview();status.textContent=invoiceDraft.length?"تم استخراج "+invoiceDraft.length+" سطر محتمل. راجعها قبل الاعتماد.":"لم نتعرف على سطور واضحة؛ جرب صورة أوضح أو أدخل العملية يدوياً.";
+ }catch(e){status.textContent="تعذر الاستخراج: "+(e.message||"خطأ غير معروف");console.error("Invoice OCR error:",e)}finally{btn.disabled=false;btn.textContent="استخراج بيانات الفاتورة"}
 }
+$("invoiceFile").addEventListener("change",()=>{$("invoiceScanStatus").textContent=$("invoiceFile").files[0]?"تم اختيار الملف: "+$("invoiceFile").files[0].name+" — اضغط استخراج بيانات الفاتورة.":"لم يتم اختيار ملف."});
 $("scanInvoiceBtn").addEventListener("click",invoiceScan);
 $("applyInvoiceLines").addEventListener("click",()=>{
  const rows=[...$("invoiceReviewRows").querySelectorAll(".invoice-review-row")],items=rows.map(r=>({product:r.querySelector("[data-ip]").value,quantity:Number(r.querySelector("[data-iq]").value),price:Number(r.querySelector("[data-iv]").value)}));

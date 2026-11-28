@@ -252,7 +252,73 @@ $("saleForm").addEventListener("submit",async e=>{e.preventDefault();const type=
 
 let invoiceOcrWorker=null,invoiceDraft=[];
 function invoiceLoadScript(src,key){return new Promise((resolve,reject)=>{if(window[key])return resolve(window[key]);let s=document.querySelector('script[data-invoice-lib="'+key+'"]');if(s){s.addEventListener("load",()=>resolve(window[key]),{once:true});s.addEventListener("error",reject,{once:true});return} s=document.createElement("script");s.src=src;s.async=true;s.dataset.invoiceLib=key;s.onload=()=>window[key]?resolve(window[key]):reject(new Error("تعذر تحميل مكتبة القراءة"));s.onerror=()=>reject(new Error("تعذر تحميل المكتبة؛ تحقق من الإنترنت"));document.head.append(s)})}
-async function invoiceWorker(){if(invoiceOcrWorker)return invoiceOcrWorker;await invoiceLoadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js","Tesseract");invoiceOcrWorker=await Tesseract.createWorker("ara+fra+eng",1,{logger:m=>{if(m.status==="recognizing text")$("invoiceScanStatus").textContent="جاري قراءة الفاتورة... "+Math.round((m.progress||0)*100)+"%"}});return invoiceOcrWorker}
+async function invoiceWorker(statusId="invoiceScanStatus"){if(invoiceOcrWorker)return invoiceOcrWorker;await invoiceLoadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js","Tesseract");invoiceOcrWorker=await Tesseract.createWorker("ara+fra+eng",1,{logger:m=>{if(m.status==="recognizing text"&&$(statusId))$(statusId).textContent="جاري قراءة الملف... "+Math.round((m.progress||0)*100)+"%"}});return invoiceOcrWorker}
+
+let productImportDraft=[];
+function productImportParse(text){
+ const out=[],seen=new Set();
+ const cleanName=s=>String(s||"").replace(/^\\s*(?:[0-9٠-٩]+[.)\\-:|]\\s*)+/,"").replace(/[|;،,:]+/g," ").replace(/\\s+/g," ").trim();
+ const lines=text.split(/\\r?\\n/).map(x=>x.replace(/\\s+/g," ").trim()).filter(x=>x.length>2);
+ for(const raw of lines){
+  const nums=[...raw.matchAll(/[0-9٠-٩]+(?:[.,٫][0-9٠-٩]{1,3})?/g)];
+  let name=cleanName(raw);
+  if(nums.length){
+   const first=nums[0].index;
+   const prefix=cleanName(raw.slice(0,first));
+   if(prefix.length>=2)name=prefix;
+   else name=cleanName(raw.replace(/[0-9٠-٩]+(?:[.,٫][0-9٠-٩]{1,3})?/g," "));
+  }else name=cleanName(raw);
+  name=name.replace(/\\b(?:dh|mad|dhs|pcs|piece|pieces|kg|g|l|ml)\\b/gi," ").replace(/\\s+/g," ").trim();
+  if(name.length<2||!/[\\p{L}]/u.test(name))continue;
+  const key=name.toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]/gu,"");
+  if(!key||seen.has(key))continue;seen.add(key);
+  const values=nums.map(m=>Number(m[0].replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(",",".").replace("٫","."))).filter(Number.isFinite);
+  const price=values.length?values[values.length-1]:0;
+  out.push({name,unit:"",price:Math.max(0,price),stock:0,raw});
+ }
+ return out;
+}
+function renderProductImport(){
+ const target=$("productImportRows");target.innerHTML="";
+ productImportDraft.forEach((x,i)=>{
+  const row=document.createElement("div");row.className="product-import-row";
+  row.innerHTML='<div class="product-import-detected"><span>الاسم المستخرج من الجدول</span><strong>'+esc(x.name)+'</strong><small>'+esc(x.raw)+'</small></div><label>اسم المنتج<input data-pname="'+i+'" value="'+esc(x.name)+'" maxlength="120"></label><label>الوحدة<input data-punit="'+i+'" value="'+esc(x.unit)+'" maxlength="20" placeholder="قطعة، kg..."></label><label>الثمن<input data-pprice="'+i+'" type="number" min="0" step=".01" value="'+esc(x.price)+'"></label><label>المخزون<input data-pstock="'+i+'" type="number" min="0" step=".01" value="'+esc(x.stock)+'"></label>';
+  target.append(row);
+ });
+ $("productImportCount").textContent=productImportDraft.length+" منتج محتمل";
+ $("productImportReview").classList.toggle("hidden",!productImportDraft.length);
+}
+async function scanProductTable(){
+ const btn=$("scanProductsBtn"),status=$("productImportStatus"),file=$("productImportFile").files[0];
+ if(!file){status.textContent="اختار صورة أو ملف PDF أولاً.";return toast("اختار صورة أو PDF أولاً")}
+ if(file.size>12*1024*1024){status.textContent="الملف كبير؛ الحد الأقصى 12 MB.";return toast("الحد الأقصى 12 MB")}
+ btn.disabled=true;btn.textContent="جاري القراءة...";
+ try{
+  status.textContent="تحميل محرك القراءة...";
+  const worker=await invoiceWorker("productImportStatus");let text="";
+  if(file.type==="application/pdf"||file.name.toLowerCase().endsWith(".pdf")){
+   await invoiceLoadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js","pdfjsLib");
+   const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise,pages=Math.min(pdf.numPages,10);
+   for(let n=1;n<=pages;n++){status.textContent="قراءة الصفحة "+n+" من "+pages;const page=await pdf.getPage(n),vp=page.getViewport({scale:1.7}),canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;text+="\\n"+(await worker.recognize(canvas)).data.text;canvas.width=canvas.height=1}
+   if(pdf.numPages>10)toast("تمت قراءة أول 10 صفحات فقط");
+  }else{text=(await worker.recognize(file)).data.text}
+  productImportDraft=productImportParse(text);renderProductImport();
+  status.textContent=productImportDraft.length?"تم استخراج "+productImportDraft.length+" اسم محتمل. راجع الأسماء والأثمنة والمخزون قبل الإضافة.":"ما قدرناش نستخرجو أسماء واضحة؛ جرب صورة أوضح أو PDF بجودة أفضل.";
+ }catch(e){status.textContent="تعذر قراءة الملف: "+(e.message||"خطأ غير معروف");console.error("Product table OCR:",e)}
+ finally{btn.disabled=false;btn.textContent="قراءة جدول المنتجات"}
+}
+$("productImportFile").addEventListener("change",()=>{$("productImportStatus").textContent=$("productImportFile").files[0]?"تم اختيار: "+$("productImportFile").files[0].name+" — اضغط قراءة جدول المنتجات.":"لم يتم اختيار ملف."});
+$("scanProductsBtn").addEventListener("click",scanProductTable);
+$("saveImportedProducts").addEventListener("click",async()=>{
+ const rows=[...$("productImportRows").querySelectorAll(".product-import-row")];
+ const items=rows.map((r)=>({name:r.querySelector("[data-pname]").value.trim(),unit:r.querySelector("[data-punit]").value.trim(),price:Number(r.querySelector("[data-pprice]").value),stock:Number(r.querySelector("[data-pstock]").value)}));
+ if(!items.length||items.some(x=>!x.name||!Number.isFinite(x.price)||x.price<0||!Number.isFinite(x.stock)||x.stock<0))return toast("راجع أسماء المنتجات والأثمنة والمخزون");
+ const btn=$("saveImportedProducts");btn.disabled=true;btn.textContent="جاري الإضافة...";
+ try{const result=await api("/admin/products/import",{method:"POST",body:JSON.stringify({items})});productImportDraft=[];$("productImportReview").classList.add("hidden");$("productImportStatus").textContent="تمت إضافة "+result.added+" منتج؛ تم تجاوز "+result.skipped+" منتج مكرر.";await loadState();toast("اكتمل استيراد المنتجات")}
+ catch(e){$("productImportStatus").textContent="تعذر حفظ المنتجات: "+e.message;toast(e.message)}
+ finally{btn.disabled=false;btn.textContent="إضافة المنتجات للمخزون دفعة واحدة"}
+});
+
 function invoiceParse(text){
  const out=[],lines=text.split(/\r?\n/).map(x=>x.replace(/\s+/g," ").trim()).filter(x=>x.length>3);
  const norm=s=>String(s||"").toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\p{L}\p{N}]+/gu,"");

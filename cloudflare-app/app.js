@@ -261,12 +261,12 @@ function invoiceParse(text){
  if(!(q>0&&q<=100000&&p>=0&&p<=100000000))continue;
  const name=line.slice(0,ms[ms.length-last.length].index).replace(/[.,،:;\-]+$/,"").trim();if(name.length<2)continue;
  const product=state.data.produits.find(x=>norm(x.nom)===norm(name))||state.data.produits.find(x=>norm(name).includes(norm(x.nom))||norm(x.nom).includes(norm(name)));
- out.push({raw:line,product:product?.nom||"",quantity:q,price:p});
+ out.push({raw:line,detectedName:name,product:product?.nom||"",quantity:q,price:p});
  }return out
 }
 function invoiceRenderReview(){
  const target=$("invoiceReviewRows");target.innerHTML="";
- invoiceDraft.forEach((x,i)=>{const row=document.createElement("div");row.className="invoice-review-row";row.innerHTML='<select data-ip="'+i+'"><option value="">— اختر المنتج —</option>'+state.data.produits.map(p=>'<option value="'+esc(p.nom)+'" '+(p.nom===x.product?'selected':'')+'>'+esc(p.nom)+'</option>').join("")+'</select><input type="number" min=".01" step=".01" aria-label="الكمية" data-iq="'+i+'" value="'+esc(x.quantity)+'"><input type="number" min="0" step=".01" aria-label="ثمن الوحدة" data-iv="'+i+'" value="'+esc(x.price)+'"><small>'+esc(x.raw)+'</small>';target.append(row)});
+ invoiceDraft.forEach((x,i)=>{const row=document.createElement("div");row.className="invoice-review-row";row.innerHTML='<div class="invoice-detected-name"><span>اسم المنتج المقروء من الفاتورة</span><strong>'+esc(x.detectedName||"لم يتم التعرف على الاسم")+'</strong></div><label>ربط مع منتج المخزون</label><select data-ip="'+i+'"><option value="">— اختر المنتج الصحيح —</option>'+state.data.produits.map(p=>'<option value="'+esc(p.nom)+'" '+(p.nom===x.product?'selected':'')+'>'+esc(p.nom)+'</option>').join("")+'</select><input type="number" min=".01" step=".01" aria-label="الكمية" data-iq="'+i+'" value="'+esc(x.quantity)+'"><input type="number" min="0" step=".01" aria-label="ثمن الوحدة" data-iv="'+i+'" value="'+esc(x.price)+'"><small>النص الأصلي: '+esc(x.raw)+'</small>';target.append(row)});
  $("invoiceReview").classList.toggle("hidden",!invoiceDraft.length)
 }
 async function invoiceScan(){

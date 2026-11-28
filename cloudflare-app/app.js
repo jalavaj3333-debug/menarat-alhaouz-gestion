@@ -398,29 +398,70 @@ function invoiceLoadScript(src,key){return new Promise((resolve,reject)=>{if(win
 async function invoiceWorker(statusId="invoiceScanStatus"){invoiceOcrStatusTarget=statusId;if(invoiceOcrWorker)return invoiceOcrWorker;await invoiceLoadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js","Tesseract");invoiceOcrWorker=await Tesseract.createWorker("ara+fra+eng",1,{logger:m=>{if(m.status==="recognizing text"&&$(invoiceOcrStatusTarget))$(invoiceOcrStatusTarget).textContent="جاري قراءة الملف... "+Math.round((m.progress||0)*100)+"%"}});return invoiceOcrWorker}
 
 let productImportDraft=[];
-function productImportParse(text){
+function productImportParse(text,ocrLines=[]){
  const out=[],seen=new Set();
  const toLatin=s=>String(s||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
- const normalize=s=>String(s||"").replace(/\s+/g," ").replace(/[|؛;]+/g," ").trim();
+ const clean=s=>String(s||"").replace(/\s+/g," ").replace(/^[\s|؛;,:•\-–—]+|[\s|؛;,:•\-–—]+$/g,"").trim();
+ const keyOf=s=>clean(s).toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\p{L}\p{N}]/gu,"");
+ const priceOf=s=>{const v=toLatin(s).replace(/[٬،]/g,"").match(/(?:^|[^\d])(\d{1,8}(?:[.,٫]\d{1,3})?)(?:\s*(?:dh|dhs|mad|د\.م)?\s*$)/i);if(!v)return null;const n=Number(v[1].replace(",",".").replace("٫","."));return Number.isFinite(n)&&n>=0?n:null};
+ const add=(name,price,raw)=>{
+  name=clean(name);if(name.length<2||!/[A-Za-zÀ-ÿ\u0600-\u06FF]/u.test(name))return;
+  const key=keyOf(name);if(!key||seen.has(key))return;seen.add(key);
+  out.push({name,unit:"",price:Number.isFinite(price)&&price!==null?price:0,stock:0,raw:clean(raw)||name});
+ };
+ // Prefer OCR geometry: use the table's own header to locate the name and price columns.
+ const lines=(ocrLines||[]).filter(x=>x&&Array.isArray(x.words)&&x.words.length);
+ const normHead=s=>keyOf(toLatin(s));
+ const isNameHead=s=>/(designation|designe|produit|product|article|item|libelle|nom|اسم|المنتج|السلعة|الصنف)/i.test(s);
+ const isPriceHead=s=>/(prix|price|tarif|vente|achat|ثمن|السعر|الثمن|دراهم|dh)/i.test(s);
+ let header=null;
+ for(const line of lines){
+  const words=line.words.filter(w=>w.text&&w.bbox&&Number.isFinite(w.bbox.x0)&&Number.isFinite(w.bbox.x1));
+  const joined=words.map(w=>w.text).join(" ");
+  if(words.length>=2&&isNameHead(joined)&&isPriceHead(joined)){
+   const nameWords=words.filter(w=>isNameHead(w.text)),priceWords=words.filter(w=>isPriceHead(w.text));
+   if(nameWords.length&&priceWords.length){
+    const center=ws=>ws.reduce((a,w)=>a+(w.bbox.x0+w.bbox.x1)/2,0)/ws.length;
+    const nameX=center(nameWords),priceX=center(priceWords);
+    if(Math.abs(nameX-priceX)>12){header={y:line.bbox?.y1??Math.max(...words.map(w=>w.bbox.y1)),nameX,priceX};break}
+   }
+  }
+ }
+ if(header){
+  for(const line of lines){
+   const y=line.bbox?(line.bbox.y0+line.bbox.y1)/2:0;
+   if(y<=header.y)continue;
+   const words=line.words.filter(w=>w.text&&w.bbox&&Number.isFinite(w.bbox.x0)&&Number.isFinite(w.bbox.x1));
+   if(!words.length)continue;
+   const nameWords=[],priceWords=[];
+   for(const w of words){
+    const x=(w.bbox.x0+w.bbox.x1)/2;
+    (Math.abs(x-header.nameX)<=Math.abs(x-header.priceX)?nameWords:priceWords).push(w.text);
+   }
+   const name=nameWords.join(" "),price=priceOf(priceWords.join(" "));
+   if(nameWords.length&&/[A-Za-zÀ-ÿ\u0600-\u06FF]/u.test(name))add(name,price,line.text||words.map(w=>w.text).join(" "));
+  }
+  if(out.length)return out;
+ }
+ // Text fallback: accept explicit separators or a clearly trailing price; never strip every number
+ // from the product name, since model numbers and sizes may be part of a real product name.
  const ignored=/^(?:اسم|الاسم|المنتج|المنتجات|الثمن|السعر|prix|price|product|products|designation|désignation|total|المجموع|رقم|no|n°|ref|réf|code|الوحدة|الكمية|quantite|quantity)$/i;
- const lines=String(text||"").split(/\r?\n/).map(normalize).filter(x=>x.length>2);
- for(const raw of lines){
+ const rawLines=String(text||"").split(/\r?\n/).map(clean).filter(x=>x.length>2);
+ for(const raw of rawLines){
   if(/(?:اسم المنتج|لائحة المنتجات|جدول المنتجات|liste des produits|product list|total général|المجموع العام)/i.test(raw))continue;
-  const numeric=toLatin(raw);
-  const matches=[...numeric.matchAll(/\d+(?:[.,٫]\d{1,3})?/g)];
-  let price=0;
-  if(matches.length){const last=matches[matches.length-1][0];price=Number(last.replace(",",".").replace("٫","."));}
-  let name=numeric
-   .replace(/^\s*(?:\d+\s*[.)\-:#|]\s*)+/," ")
-   .replace(/\d+(?:[.,٫]\d{1,3})?/g," ")
-   .replace(/\b(?:dh|mad|dhs|pcs|piece|pieces|kg|g|l|ml|unité|unites|u)\b/gi," ")
-   .replace(/[|;،,:•]+/g," ").replace(/\s+/g," ").trim();
-  name=name.replace(/^[\s\-–—]+|[\s\-–—]+$/g,"");
-  if(name.length<2||!/[\p{L}]/u.test(name)||ignored.test(name))continue;
-  const key=name.toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\p{L}\p{N}]/gu,"");
-  if(!key||seen.has(key))continue;
-  seen.add(key);
-  out.push({name,unit:"",price:Number.isFinite(price)?Math.max(0,price):0,stock:0,raw});
+  const cells=raw.split(/\s{2,}|\t+|[|;؛]/).map(clean).filter(Boolean);
+  let name="",price=null;
+  if(cells.length>=2){
+   const priceIndex=cells.findIndex((c,i)=>i>0&&priceOf(c)!==null);
+   if(priceIndex>0){name=cells.slice(0,priceIndex).join(" ");price=priceOf(cells[priceIndex]);}
+  }
+  if(!name){
+   const m=toLatin(raw).match(/^(.+?)\s+(\d{1,8}(?:[.,٫]\d{1,3})?\s*(?:dh|dhs|mad|د\.م))\s*$/i);
+   if(m){name=clean(m[1]);price=priceOf(m[2]);}
+  }
+  if(!name)continue;
+  if(ignored.test(name))continue;
+  add(name,price,raw);
  }
  return out;
 }
@@ -442,16 +483,20 @@ async function scanProductTable(){
  btn.disabled=true;btn.textContent="جاري القراءة...";
  try{
   status.textContent="تحميل محرك القراءة...";
-  const worker=await invoiceWorker("productImportStatus");let text="";
-  const addOcrResult=result=>{const d=result&&result.data;if(d&&Array.isArray(d.lines)&&d.lines.length)text+="\n"+d.lines.map(line=>line.text||"").join("\n");else text+="\n"+(d&&d.text||"")};
+  const worker=await invoiceWorker("productImportStatus");let text="";const ocrLines=[];
+  const addOcrResult=result=>{
+   const d=result&&result.data;if(!d)return;
+   if(Array.isArray(d.lines)){for(const line of d.lines){if(line.text)text+="\n"+line.text;if(Array.isArray(line.words))ocrLines.push(line)}}
+   else text+="\n"+(d.text||"");
+  };
   if(file.type==="application/pdf"||file.name.toLowerCase().endsWith(".pdf")){
    await invoiceLoadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js","pdfjsLib");
    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise,pages=Math.min(pdf.numPages,10);
    for(let n=1;n<=pages;n++){status.textContent="قراءة الصفحة "+n+" من "+pages;const page=await pdf.getPage(n),vp=page.getViewport({scale:2}),canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;addOcrResult(await worker.recognize(canvas));canvas.width=canvas.height=1}
    if(pdf.numPages>10)toast("تمت قراءة أول 10 صفحات فقط");
   }else{addOcrResult(await worker.recognize(file))}
-  productImportDraft=productImportParse(text);renderProductImport();
-  status.textContent=productImportDraft.length?"تم العثور على "+productImportDraft.length+" سطراً محتملاً. صحّح الأسماء والأثمنة واحذف السطور غير الصحيحة قبل الإضافة.":"لم تظهر أسماء واضحة. جرّب صورة مستقيمة وواضحة يظهر فيها الجدول كاملاً.";
+  productImportDraft=productImportParse(text,ocrLines);renderProductImport();
+  status.textContent=productImportDraft.length?"تم العثور على "+productImportDraft.length+" منتجاً محتملاً. تم استعمال عناوين الأعمدة إن أمكن؛ راجع الاسم والثمن لكل سطر قبل الحفظ.":"لم نتعرف على صفوف واضحة. جرّب صورة مستقيمة وواضحة يظهر فيها الجدول كاملاً مع عناوين الأعمدة.";
  }catch(e){status.textContent="تعذرت قراءة الملف: "+(e.message||"خطأ غير معروف");console.error("Product table OCR:",e)}
  finally{btn.disabled=false;btn.textContent="قراءة الجدول من جديد"}
 }

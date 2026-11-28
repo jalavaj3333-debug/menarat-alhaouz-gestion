@@ -39,11 +39,69 @@ function setRoleUI(){document.querySelectorAll(".admin-only").forEach(el=>el.cla
 function showLogin(){ $("loginView").classList.remove("hidden");$("appView").classList.add("hidden") }
 function showApp(){ $("loginView").classList.add("hidden");$("appView").classList.remove("hidden");setRoleUI();go("overview");loadState() }
 async function loadState(){try{state.data=await api("/state");renderAll();updateSaleType()}catch(e){toast(e.message)}}
-function go(page){document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));$("page-"+page)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));const names={overview:"الرئيسية",bilan:"الحصيلة Bilan",expenses:"المصاريف",debts:"الديون",cash:"الصندوق النقدي",customers:"إدارة الزبائن",products:"المنتجات والمخزون","stock-alerts":"تنبيهات المخزون",sales:"تسجيل عملية",history:"الفواتير والعمليات",employees:"الموظفون",zones:"المناطق",suppliers:"الموردون"};$("pageTitle").textContent=names[page]||"الرئيسية"}
+function go(page){document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));$("page-"+page)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));const names={overview:"الرئيسية",bilan:"الحصيلة Bilan",expenses:"المصاريف",debts:"الديون",cash:"الصندوق النقدي",notifications:"مركز الإشعارات",customers:"إدارة الزبائن",products:"المنتجات والمخزون","stock-alerts":"تنبيهات المخزون",sales:"تسجيل عملية",history:"الفواتير والعمليات",employees:"الموظفون",zones:"المناطق",suppliers:"الموردون"};$("pageTitle").textContent=names[page]||"الرئيسية"}
 function table(headers,rows){if(!rows.length)return '<p class="muted">لا توجد بيانات مسجلة حالياً.</p>';return '<table class="data-table"><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table>'}
+
+const NOTIFICATION_STORAGE_KEY="menarat-notifications-v1";
+let notificationFilter="all";
+function readNotificationState(){
+ try{return JSON.parse(localStorage.getItem(NOTIFICATION_STORAGE_KEY+":"+(state.user?.id||"guest"))||'{"read":[],"dismissed":[]}')}
+ catch{return {read:[],dismissed:[]}}
+}
+function saveNotificationState(value){
+ try{localStorage.setItem(NOTIFICATION_STORAGE_KEY+":"+(state.user?.id||"guest"),JSON.stringify(value))}
+ catch{}
+}
+function buildNotifications(){
+ const data=state.data||{},items=[],now=new Date(),todayKey=[now.getFullYear(),String(now.getMonth()+1).padStart(2,"0"),String(now.getDate()).padStart(2,"0")].join("-");
+ const limit=Math.max(0,Number($("stockAlertLimit")?.value??5)||0);
+ for(const p of data.produits||[]){
+  const stock=Number(p.stock)||0;
+  if(stock<=0)items.push({id:"stock-out:"+p.id,type:"stock",level:"danger",title:"نفاد المخزون",message:"المنتج "+p.nom+" نفد من المخزون.",date:todayKey,action:"stock-alerts"});
+  else if(stock<=limit)items.push({id:"stock-low:"+p.id,type:"stock",level:"warning",title:"مخزون منخفض",message:"المنتج "+p.nom+" — الكمية المتبقية: "+stock, date:todayKey,action:"stock-alerts"});
+ }
+ if(isAdmin()){
+  for(const d of data.debts||[]){
+   const remaining=Math.max(0,Number(d.total_amount)-Number(d.paid_amount));
+   if(remaining<=0||!d.due_date)continue;
+   const days=Math.ceil((new Date(d.due_date+"T00:00:00").getTime()-new Date(todayKey+"T00:00:00").getTime())/86400000);
+   if(days<0||days<=7)items.push({id:"debt-due:"+d.id,type:"debt",level:days<0?"danger":"warning",title:days<0?"دين متجاوز تاريخ الاستحقاق":"دين اقترب موعد استحقاقه",message:d.person+" — المتبقي "+money(remaining)+(days<0?" — متأخر بـ "+Math.abs(days)+" يوم":" — باقي "+days+" يوم"),date:d.due_date,action:"debts"});
+  }
+  for(const x of (data.expenses||[]).filter(x=>x.date>=todayKey).slice(0,8)){
+   items.push({id:"expense:"+x.id,type:"expense",level:"info",title:"مصروف مسجل حديثاً",message:(x.category||"مصروف")+" — "+money(x.amount),date:x.date,action:"expenses"});
+  }
+ }
+ const grouped=new Map();
+ for(const op of data.operations||[]){
+  const key=op.factureId||op.id;if(!key)continue;
+  const date=String(op.date||"");
+  if(date<todayKey)continue;
+  if(!grouped.has(key))grouped.set(key,{id:"operation:"+key,type:"operation",level:"info",title:op.type==="achat"?"عملية شراء جديدة":"عملية بيع جديدة",message:(op.invoiceRef||key)+" — "+(op.customer||op.fournisseur||op.employe||"")+" — "+money(op.total),date,action:"history"});
+ }
+ items.push(...grouped.values());
+ return items.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+}
+function renderNotifications(){
+ const stored=readNotificationState(),all=buildNotifications().filter(x=>!stored.dismissed.includes(x.id));
+ const unread=all.filter(x=>!stored.read.includes(x.id)).length;
+ const badge=$("notificationCount"),navBadge=$("navNotificationCount");
+ [badge,navBadge].forEach(el=>{if(!el)return;el.textContent=unread>99?"99+":String(unread);el.classList.toggle("hidden",unread===0)});
+ if($("unreadNotificationsCount"))$("unreadNotificationsCount").textContent=unread;
+ if($("allNotificationsCount"))$("allNotificationsCount").textContent=all.length;
+ const visible=notificationFilter==="unread"?all.filter(x=>!stored.read.includes(x.id)):all;
+ const target=$("notificationsList");if(!target)return;
+ target.innerHTML=visible.length?visible.map(x=>'<article class="notification-card '+(stored.read.includes(x.id)?"is-read":"is-unread")+'"><span class="notification-symbol '+x.level+'">'+(x.type==="stock"?"▦":x.type==="debt"?"د.ي":x.type==="expense"?"د.م":"↗")+'</span><div class="notification-copy"><div class="notification-title-row"><strong>'+esc(x.title)+'</strong><small>'+esc(x.date||"")+'</small></div><p>'+esc(x.message)+'</p><div class="notification-actions"><button type="button" class="outline" data-notification-go="'+esc(x.action)+'">عرض التفاصيل</button>'+(stored.read.includes(x.id)?'<span class="notification-read-label">مقروء</span>':'<button type="button" class="ghost" data-notification-read="'+esc(x.id)+'">تعليم كمقروء</button>')+'<button type="button" class="ghost notification-dismiss" data-notification-dismiss="'+esc(x.id)+'">حذف</button></div></div></article>').join(""):'<div class="panel notification-empty"><strong>لا توجد إشعارات هنا</strong><p class="muted">كل شيء هادئ حالياً، أو لا توجد تنبيهات مطابقة لهذا الفلتر.</p></div>';
+}
+function updateNotificationState(id,kind){
+ const stored=readNotificationState();
+ if(kind==="read"&&!stored.read.includes(id))stored.read.push(id);
+ if(kind==="dismiss"&&!stored.dismissed.includes(id))stored.dismissed.push(id);
+ saveNotificationState(stored);renderNotifications();
+}
+
 function renderAll(){const d=state.data;const sales=d.operations.filter(x=>x.type==="vente"),buys=d.operations.filter(x=>x.type==="achat");const now=new Date();const today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,"0"),String(now.getDate()).padStart(2,"0")].join("-");const month=today.slice(0,7);const sumFor=list=>list.reduce((sum,x)=>sum+(Number(x.total)||0),0);$("statProducts").textContent=d.produits.length;$("statStock").textContent=d.produits.reduce((s,p)=>s+(Number(p.stock)||0),0).toLocaleString("fr-FR");$("statSales").textContent=new Set(sales.map(x=>x.factureId)).size;$("statPurchases").textContent=new Set(buys.map(x=>x.factureId)).size;$("statSalesToday").textContent=money(sumFor(sales.filter(x=>x.date===today)));$("statSalesMonth").textContent=money(sumFor(sales.filter(x=>String(x.date||"").startsWith(month))));const dateLabel=new Intl.DateTimeFormat("ar-MA",{weekday:"long",year:"numeric",month:"long",day:"numeric"}).format(now);if($("overviewDate"))$("overviewDate").textContent=dateLabel;
 const recent=[...d.operations].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,7);$("recentList").innerHTML=table(["التاريخ","النوع","المنتج","الكمية","المجموع"],recent.map(x=>'<tr><td>'+esc(x.date)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td></tr>'));
-renderProducts();renderHistory();renderNamedLists();renderCustomers();renderBilan();renderStockAlerts();renderExpenses();renderDebts();renderCash();refreshSaleOptions()}
+renderProducts();renderHistory();renderNamedLists();renderCustomers();renderBilan();renderStockAlerts();renderExpenses();renderDebts();renderCash();renderNotifications();refreshSaleOptions()}
 
 function getBilanOperations(){
  const from=$("bilanFrom")?.value||"",to=$("bilanTo")?.value||"";
@@ -277,7 +335,9 @@ async function deleteExpense(id){if(!confirm("واش متأكد من حذف ها
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();$("loginError").textContent="";try{const result=await api("/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});state.user=result.user;showApp()}catch(err){$("loginError").textContent=err.message}});
 $("logoutBtn").onclick=async()=>{try{await api("/logout",{method:"POST",body:"{}"})}catch{}state.user=null;showLogin()};
 $("mainNav").addEventListener("click",e=>{const b=e.target.closest("[data-page]");if(b)go(b.dataset.page)});
-document.addEventListener("click",e=>{const customerEdit=e.target.closest("[data-edit-customer]");if(customerEdit)editCustomer(customerEdit.dataset.editCustomer);const pay=e.target.closest("[data-debt-pay]");if(pay)addDebtPayment(pay.dataset.debtPay);const debt=e.target.closest("[data-debt-delete]");if(debt)deleteDebt(debt.dataset.debtDelete);const expense=e.target.closest("[data-delete-expense]");if(expense)deleteExpense(expense.dataset.deleteExpense);const cash=e.target.closest("[data-delete-cash]");if(cash)deleteCashMovement(cash.dataset.deleteCash);const b=e.target.closest("[data-go]");if(b)go(b.dataset.go);const edit=e.target.closest("[data-edit-product]");if(edit)editProduct(edit.dataset.editProduct);const del=e.target.closest("[data-delete]");if(del)deleteItem(del)});
+$("markAllNotificationsRead")?.addEventListener("click",()=>{const stored=readNotificationState();for(const item of buildNotifications())if(!stored.read.includes(item.id))stored.read.push(item.id);saveNotificationState(stored);renderNotifications();toast("تم تعليم جميع الإشعارات كمقروءة")});
+document.querySelectorAll("[data-notification-filter]").forEach(btn=>btn.addEventListener("click",()=>{notificationFilter=btn.dataset.notificationFilter;document.querySelectorAll("[data-notification-filter]").forEach(x=>x.classList.toggle("active",x===btn));renderNotifications()}));
+document.addEventListener("click",e=>{const notifRead=e.target.closest("[data-notification-read]");if(notifRead)updateNotificationState(notifRead.dataset.notificationRead,"read");const notifDismiss=e.target.closest("[data-notification-dismiss]");if(notifDismiss)updateNotificationState(notifDismiss.dataset.notificationDismiss,"dismiss");const notifGo=e.target.closest("[data-notification-go]");if(notifGo){const item=buildNotifications().find(x=>x.action===notifGo.dataset.notificationGo&&x.id);if(item)updateNotificationState(item.id,"read");go(notifGo.dataset.notificationGo)}const customerEdit=e.target.closest("[data-edit-customer]");if(customerEdit)editCustomer(customerEdit.dataset.editCustomer);const pay=e.target.closest("[data-debt-pay]");if(pay)addDebtPayment(pay.dataset.debtPay);const debt=e.target.closest("[data-debt-delete]");if(debt)deleteDebt(debt.dataset.debtDelete);const expense=e.target.closest("[data-delete-expense]");if(expense)deleteExpense(expense.dataset.deleteExpense);const cash=e.target.closest("[data-delete-cash]");if(cash)deleteCashMovement(cash.dataset.deleteCash);const b=e.target.closest("[data-go]");if(b)go(b.dataset.go);const edit=e.target.closest("[data-edit-product]");if(edit)editProduct(edit.dataset.editProduct);const del=e.target.closest("[data-delete]");if(del)deleteItem(del)});
 function exportHistoryCSV(){
   const rows=[["التاريخ","رقم الفاتورة","النوع","الموظف","المورد","المنطقة","المنتج","الوحدة","الكمية","ثمن الوحدة","المجموع","الأداء"]];
   const operations=[...getFilteredOperations()].sort((a,b)=>String(a.date).localeCompare(String(b.date)));

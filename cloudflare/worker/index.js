@@ -201,6 +201,8 @@ async function handle(request, env) {
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS cash_transactions (id TEXT PRIMARY KEY, movement_type TEXT NOT NULL CHECK(movement_type IN ('opening','income','expense')), movement_date TEXT NOT NULL, category TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '', amount REAL NOT NULL CHECK(amount > 0), created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
     try { await env.DB.prepare("ALTER TABLE invoices ADD COLUMN customer_name TEXT NOT NULL DEFAULT ''").run(); }
     catch (error) { if (!/duplicate column/i.test(String(error?.message || error))) throw error; }
+    try { await env.DB.prepare("ALTER TABLE invoices ADD COLUMN deleted_at TEXT").run(); }
+    catch (error) { if (!/duplicate column/i.test(String(error?.message || error))) throw error; }
     const [products, employees, zones, customers, suppliers, expenses, debts, invoices] = await Promise.all([
       env.DB.prepare("SELECT id, name AS nom, unit AS unite, price AS prix, opening_stock AS stockInitial, current_stock AS stock, supplier_name AS fournisseur FROM products WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM employees WHERE active=1 ORDER BY name").all(),
@@ -209,7 +211,7 @@ async function handle(request, env) {
       env.DB.prepare("SELECT id, name AS nom, phone AS tel FROM suppliers WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id,expense_date AS date,category,description,amount,created_by FROM expenses WHERE active=1 ORDER BY expense_date DESC,created_at DESC").all(),
       env.DB.prepare("SELECT d.*, COALESCE((SELECT SUM(p.amount) FROM debt_payments p WHERE p.debt_id=d.id),0) AS payments_total FROM debts d WHERE d.active=1 ORDER BY d.created_at DESC").all(),
-      env.DB.prepare("SELECT i.*, l.id AS line_id, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id WHERE (? = 'admin' OR i.employee_user_id = ?) ORDER BY i.operation_date DESC").bind(user.role, user.id).all()
+      env.DB.prepare("SELECT i.*, l.id AS line_id, l.product_name AS produit,l.unit AS unite,l.quantity AS quantite,l.unit_price AS prix,l.line_total AS total FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id=i.id WHERE i.deleted_at IS NULL AND (? = 'admin' OR i.employee_user_id = ?) ORDER BY i.operation_date DESC").bind(user.role, user.id).all()
     ]);
     const cashTransactions = await env.DB.prepare("SELECT id,movement_type AS type,movement_date AS date,category,description,amount,created_by FROM cash_transactions WHERE active=1 ORDER BY movement_date DESC,created_at DESC").all();
     const operations = (invoices.results || []).filter(row => row.produit).map(row => ({
@@ -279,6 +281,44 @@ async function handle(request, env) {
     const result = await env.DB.prepare("UPDATE debts SET active=0 WHERE id=? AND active=1").bind(id).run();
     return Number(result.meta?.changes || 0) === 1 ? json({ ok: true }) : json({ error: "الدين غير موجود" }, 404);
   }
+  if (path.startsWith("/api/invoices/") && request.method === "DELETE") {
+    if (!requireAdmin(user)) return json({ error: "Admin permission required" }, 403);
+    if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
+    const id = path.split("/").filter(Boolean)[2] || "";
+    if (!id) return json({ error: "رقم العملية غير صحيح" }, 400);
+    const invoice = await env.DB.prepare("SELECT id,type FROM invoices WHERE id=? AND deleted_at IS NULL").bind(id).first();
+    if (!invoice) return json({ error: "العملية غير موجودة أو سبق حذفها" }, 404);
+    const lines = await env.DB.prepare("SELECT product_name,quantity FROM invoice_lines WHERE invoice_id=?").bind(id).all();
+    if (!lines.results?.length) return json({ error: "لا توجد تفاصيل لهذه العملية" }, 400);
+    const totals = new Map();
+    for (const line of lines.results) {
+      const name = String(line.product_name || "");
+      const quantity = Number(line.quantity);
+      if (!name || !Number.isFinite(quantity) || quantity <= 0) return json({ error: "تفاصيل العملية غير صالحة" }, 409);
+      totals.set(name, (totals.get(name) || 0) + quantity);
+    }
+    if (invoice.type === "achat") {
+      for (const [name, quantity] of totals) {
+        const product = await env.DB.prepare("SELECT current_stock FROM products WHERE name=?").bind(name).first();
+        if (!product || Number(product.current_stock) < quantity) {
+          return json({ error: "لا يمكن حذف عملية الشراء: المخزون الحالي لا يكفي لخصم الكمية التي دخلت بها" }, 409);
+        }
+      }
+    }
+    const deletedAt = new Date().toISOString();
+    const statements = [
+      env.DB.prepare("UPDATE invoices SET deleted_at=? WHERE id=? AND deleted_at IS NULL").bind(deletedAt,id)
+    ];
+    for (const [name, quantity] of totals) {
+      statements.push(invoice.type === "vente"
+        ? env.DB.prepare("UPDATE products SET current_stock=current_stock+? WHERE name=? AND EXISTS (SELECT 1 FROM invoices WHERE id=? AND deleted_at=?)").bind(quantity,name,id,deletedAt)
+        : env.DB.prepare("UPDATE products SET current_stock=current_stock-? WHERE name=? AND current_stock>=? AND EXISTS (SELECT 1 FROM invoices WHERE id=? AND deleted_at=?)").bind(quantity,name,quantity,id,deletedAt));
+    }
+    const results = await env.DB.batch(statements);
+    if (Number(results?.[0]?.meta?.changes || 0) !== 1) return json({ error: "تعذر حذف العملية، ربما تم حذفها من قبل" }, 409);
+    return json({ ok: true, restoredStock: invoice.type === "vente", adjustedProducts: totals.size });
+  }
+
   if (path === "/api/sales" && request.method === "POST") {
     if (!sameOrigin(request, env)) return json({ error: "Origin rejected" }, 403);
     const data = await body(request);

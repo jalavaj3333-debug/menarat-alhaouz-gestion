@@ -400,29 +400,47 @@ async function invoiceWorker(statusId="invoiceScanStatus"){invoiceOcrStatusTarge
 let productImportDraft=[];
 let productImportOcrLines=[];
 let productImportColumnCenters=[];
+function productImportLineSegments(line,gap){
+ const words=(line.words||[]).map((w,index)=>({w,index,x0:Number(w.bbox?.x0),x1:Number(w.bbox?.x1)})).filter(x=>x.w.text&&Number.isFinite(x.x0)&&Number.isFinite(x.x1)).sort((a,b)=>a.x0-b.x0);
+ const segments=[];
+ for(const item of words){
+  let segment=segments[segments.length-1];
+  if(!segment||item.x0-segment.right>gap){segment={items:[],left:item.x0,right:item.x1};segments.push(segment)}
+  segment.items.push(item);segment.right=Math.max(segment.right,item.x1);
+ }
+ return segments.map(segment=>({center:segment.items.reduce((sum,x)=>sum+(x.x0+x.x1)/2,0)/segment.items.length,words:segment.items.sort((a,b)=>a.index-b.index).map(x=>x.w)}));
+}
 function productImportBuildColumns(lines){
- const words=lines.flatMap(line=>(line.words||[]).filter(w=>w.text&&w.bbox&&Number.isFinite(w.bbox.x0)&&Number.isFinite(w.bbox.x1)).map(w=>({x:(w.bbox.x0+w.bbox.x1)/2})));
- if(!words.length)return [];
- const maxX=Math.max(...words.map(w=>w.x),1),gap=Math.max(18,maxX*.035),sorted=[...words].sort((a,b)=>a.x-b.x),clusters=[];
- for(const w of sorted){let c=clusters[clusters.length-1];if(!c||w.x-c.last>gap){c={sum:0,n:0,last:w.x};clusters.push(c)}c.sum+=w.x;c.n++;c.last=w.x}
- const centers=clusters.map(c=>c.sum/c.n),merged=[];
- for(const x of centers){const p=merged[merged.length-1];if(p&&x-p.center<maxX*.055){p.center=(p.center*p.n+x)/(p.n+1);p.n++}else merged.push({center:x,n:1})}
- return merged.length>1?merged.map(x=>x.center):[];
+ const all=(lines||[]).flatMap(line=>productImportLineSegments(line,Math.max(16,Number(line.words?.[0]?.bbox?.x1||0)*.018)));
+ if(all.length<2)return [];
+ const maxX=Math.max(1,...all.map(x=>x.center)),gap=Math.max(28,maxX*.075),sorted=[...all].sort((a,b)=>a.center-b.center),clusters=[];
+ for(const segment of sorted){
+  let c=clusters[clusters.length-1];
+  if(!c||segment.center-c.last>gap){c={sum:0,n:0,last:segment.center};clusters.push(c)}
+  c.sum+=segment.center;c.n++;c.last=segment.center;
+ }
+ return clusters.filter(c=>c.n>=1).map(c=>c.sum/c.n);
 }
 function productImportApplyColumns(){
  const nameCol=Number($("productImportNameColumn").value),priceCol=Number($("productImportPriceColumn").value);
- if(!Number.isInteger(nameCol)||!Number.isInteger(priceCol)||nameCol===priceCol){toast("اختار عمودين مختلفين للاسم والثمن");return}
+ if(!Number.isInteger(nameCol)||!Number.isInteger(priceCol)||nameCol===priceCol){$("productImportStatus").textContent="اختار عمود الاسم وعمود الثمن بشكل مختلف.";toast("اختار عمودين مختلفين للاسم والثمن");return}
  const toLatin=s=>String(s||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
- const clean=s=>String(s||"").replace(/\s+/g," ").trim();
- const priceOf=s=>{const m=toLatin(s).replace(/[٬،]/g,"").match(/(?:^|[^\d])(\d{1,8}(?:[.,٫]\d{1,3})?)(?:\s*(?:dh|dhs|mad|د\.?م\.?)?\s*$)/i);if(!m)return null;const n=Number(m[1].replace(",",".").replace("٫","."));return Number.isFinite(n)?n:null};
+ const clean=s=>String(s||"").replace(/\\s+/g," ").trim();
+ const priceOf=s=>{const m=toLatin(s).replace(/[٬،]/g,"").match(/(?:^|[^\\d])(\\d{1,8}(?:[.,٫]\\d{1,3})?)(?:\\s*(?:dh|dhs|mad|د\\.?م\\.?)?\\s*$)/i);if(!m)return null;const n=Number(m[1].replace(",",".").replace("٫","."));return Number.isFinite(n)?n:null};
  const centers=productImportColumnCenters;productImportDraft=[];
  for(const line of productImportOcrLines){
   const cells=centers.map(()=>[]);
-  for(const w of (line.words||[])){if(!w.text||!w.bbox)continue;const x=(w.bbox.x0+w.bbox.x1)/2;let best=0,dist=Infinity;centers.forEach((c,i)=>{const d=Math.abs(c-x);if(d<dist){dist=d;best=i}});cells[best].push(w.text)}
+  for(const segment of productImportLineSegments(line,Math.max(16,Math.max(...centers)*.018))){
+   let best=0,dist=Infinity;centers.forEach((center,i)=>{const d=Math.abs(center-segment.center);if(d<dist){dist=d;best=i}});
+   cells[best].push(segment.words.map(w=>w.text).join(" "));
+  }
   const name=clean(cells[nameCol].join(" ")),raw=clean(line.text||(line.words||[]).map(w=>w.text).join(" ")),price=priceOf(cells[priceCol].join(" "));
-  if(name.length>1&&/[A-Za-zÀ-ÿ\u0600-\u06FF]/u.test(name)&&price!==null)productImportDraft.push({name,unit:"",price,stock:0,raw});
+  if(name.length>1&&/[A-Za-zÀ-ÿ\\u0600-\\u06FF]/u.test(name)&&price!==null&&!/^(?:designation|produit|product|article|اسم|المنتج|الثمن|السعر|prix|price)$/i.test(name))productImportDraft.push({name,unit:"",price,stock:0,raw});
  }
- renderProductImport();$("productImportStatus").textContent=productImportDraft.length?"تم استخراج "+productImportDraft.length+" سطر حسب الأعمدة المختارة. راجع النتائج قبل الحفظ.":"ما لقيناش صفوف فيها اسم وثمن واضحين. جرّب تبديل الأعمدة.";
+ renderProductImport();
+ $("productImportStatus").textContent=productImportDraft.length?"نجح الاختبار: تم استخراج "+productImportDraft.length+" سطر. صحح الاسم والثمن قبل الحفظ.":"لم تظهر نتائج صالحة. بدّل اختيار الأعمدة وجرب من جديد؛ لم يتم حفظ أي منتج.";
+ if(!productImportDraft.length)toast("الاختبار لم يعثر على نتائج؛ بدّل الأعمدة");
+ else $("productImportReview").scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 function productImportSetupColumns(lines){
  productImportOcrLines=(lines||[]).filter(x=>x&&Array.isArray(x.words)&&x.words.length);
@@ -430,7 +448,9 @@ function productImportSetupColumns(lines){
  const panel=$("productImportColumnMapping"),name=$("productImportNameColumn"),price=$("productImportPriceColumn");name.innerHTML="";price.innerHTML="";
  if(productImportColumnCenters.length<2){panel.classList.add("hidden");return false}
  productImportColumnCenters.forEach((x,i)=>{const label="العمود "+(i+1);name.add(new Option(label,String(i)));price.add(new Option(label,String(i)))});
- name.value="0";price.value=String(productImportColumnCenters.length-1);panel.classList.remove("hidden");return true;
+ name.value="0";price.value=String(productImportColumnCenters.length-1);panel.classList.remove("hidden");
+ $("productImportStatus").textContent="تم تحديد "+productImportColumnCenters.length+" أعمدة تقريبية. اختار عمود الاسم والثمن ثم اضغط اختبار النتائج.";
+ return true;
 }
 function productImportParse(text,ocrLines=[]){
  const out=[],seen=new Set();
@@ -537,7 +557,7 @@ async function scanProductTable(){
 }
 $("productImportFile").addEventListener("change",()=>{$("productImportStatus").textContent=$("productImportFile").files[0]?"تم اختيار الملف: "+$("productImportFile").files[0].name+" — اضغط على قراءة الجدول.":"لم يتم اختيار ملف."});
 $("scanProductsBtn").addEventListener("click",scanProductTable);
-$("applyProductImportColumns").addEventListener("click",productImportApplyColumns);
+document.addEventListener("click",e=>{const button=e.target.closest("#applyProductImportColumns");if(button){e.preventDefault();productImportApplyColumns()}});
 $("saveImportedProducts").addEventListener("click",async()=>{
  const rows=[...$("productImportRows").querySelectorAll(".product-import-row")];
  const items=rows.map(r=>({name:r.querySelector("[data-pname]").value.trim(),unit:"",price:Number(r.querySelector("[data-pprice]").value),stock:0}));

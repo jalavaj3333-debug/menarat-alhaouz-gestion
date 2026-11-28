@@ -611,10 +611,10 @@ async function scanProductTable(){
   }else{
    const bitmap=await createImageBitmap(file);addPass(await productImportRecognize(worker,productImportPreprocess(bitmap)));bitmap.close?.();
   }
-  const candidates=passes.map(p=>({rows:productImportAutoExtract(p.lines),text:p.text,lines:p.lines.length}));
+  const candidates=passes.map(p=>({rows:productImportAutoExtract(p.lines),text:p.text,ocrLines:p.lines}));
   candidates.sort((a,b)=>b.rows.length-a.rows.length);
   productImportDraft=candidates[0].rows;
-  if(!productImportDraft.length)productImportDraft=productImportParse(candidates[0].text,candidates[0].lines?passes[0].lines:[]);
+  if(!productImportDraft.length)productImportDraft=productImportParse(candidates[0].text,candidates[0].ocrLines);
   $("productImportColumnMapping")?.classList.add("hidden");
   renderProductImport();
   status.textContent=productImportDraft.length?"تم استخراج "+productImportDraft.length+" منتجاً بعد تحسين الصورة. راجع الأسماء وأثمنة الوحدة قبل الحفظ؛ المخزون سيبقى صفراً.":"ما قدرناش نقرأ الجدول بوضوح. جرّب ملفاً أوضح أو PDF أصلياً؛ لم يتم حفظ أي منتج.";

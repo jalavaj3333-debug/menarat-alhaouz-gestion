@@ -343,6 +343,32 @@ async function handle(request, env) {
     };
     const cfg = tables[resource];
     if (!cfg) return json({ error: "Unknown admin resource" }, 404);
+    if (resource === "products" && request.method === "POST" && id === "import") {
+      const data = await body(request);
+      if (!Array.isArray(data.items) || data.items.length < 1 || data.items.length > 300) {
+        return json({ error: "Provide between 1 and 300 products" }, 400);
+      }
+      const existing = await env.DB.prepare("SELECT lower(name) AS key FROM products WHERE active=1").all();
+      const known = new Set((existing.results || []).map(x => String(x.key || "").trim()));
+      const statements = [];
+      let skipped = 0;
+      for (const item of data.items) {
+        const name = clean(item?.name, 120);
+        const unit = clean(item?.unit, 20);
+        const price = Number(item?.price ?? 0);
+        const stock = Number(item?.stock ?? 0);
+        const key = name.toLocaleLowerCase("en").trim();
+        if (!name || !Number.isFinite(price) || price < 0 || !Number.isFinite(stock) || stock < 0) {
+          return json({ error: "One or more product rows contain invalid data" }, 400);
+        }
+        if (known.has(key)) { skipped++; continue; }
+        known.add(key);
+        statements.push(env.DB.prepare("INSERT INTO products(id,name,unit,price,opening_stock,current_stock,supplier_name) VALUES(?,?,?,?,?,?,?)")
+          .bind(crypto.randomUUID(), name, unit, price, stock, stock, ""));
+      }
+      if (statements.length) await env.DB.batch(statements);
+      return json({ ok: true, added: statements.length, skipped }, 201);
+    }
     if (request.method === "POST") {
       const data = await body(request);
       const name = clean(data.name, 120);

@@ -257,24 +257,27 @@ async function invoiceWorker(statusId="invoiceScanStatus"){invoiceOcrStatusTarge
 let productImportDraft=[];
 function productImportParse(text){
  const out=[],seen=new Set();
- const cleanName=s=>String(s||"").replace(/^\s*(?:[0-9٠-٩]+[.)\-:|]\s*)+/,"").replace(/[|;،,:]+/g," ").replace(/\s+/g," ").trim();
- const lines=text.split(/\r?\n/).map(x=>x.replace(/\s+/g," ").trim()).filter(x=>x.length>2);
+ const toLatin=s=>String(s||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+ const normalize=s=>String(s||"").replace(/\s+/g," ").replace(/[|؛;]+/g," ").trim();
+ const ignored=/^(?:اسم|الاسم|المنتج|المنتجات|الثمن|السعر|prix|price|product|products|designation|désignation|total|المجموع|رقم|no|n°|ref|réf|code|الوحدة|الكمية|quantite|quantity)$/i;
+ const lines=String(text||"").split(/\r?\n/).map(normalize).filter(x=>x.length>2);
  for(const raw of lines){
-  const nums=[...raw.matchAll(/[0-9٠-٩]+(?:[.,٫][0-9٠-٩]{1,3})?/g)];
-  let name=cleanName(raw);
-  if(nums.length){
-   const first=nums[0].index;
-   const prefix=cleanName(raw.slice(0,first));
-   if(prefix.length>=2)name=prefix;
-   else name=cleanName(raw.replace(/[0-9٠-٩]+(?:[.,٫][0-9٠-٩]{1,3})?/g," "));
-  }else name=cleanName(raw);
-  name=name.replace(/\b(?:dh|mad|dhs|pcs|piece|pieces|kg|g|l|ml)\b/gi," ").replace(/\s+/g," ").trim();
-  if(name.length<2||!/[\p{L}]/u.test(name))continue;
-  const key=name.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
-  if(!key||seen.has(key))continue;seen.add(key);
-  const values=nums.map(m=>Number(m[0].replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(",",".").replace("٫","."))).filter(Number.isFinite);
-  const price=values.length?values[values.length-1]:0;
-  out.push({name,unit:"",price:Math.max(0,price),stock:0,raw});
+  if(/(?:اسم المنتج|لائحة المنتجات|جدول المنتجات|liste des produits|product list|total général|المجموع العام)/i.test(raw))continue;
+  const numeric=toLatin(raw);
+  const matches=[...numeric.matchAll(/\d+(?:[.,٫]\d{1,3})?/g)];
+  let price=0;
+  if(matches.length){const last=matches[matches.length-1][0];price=Number(last.replace(",",".").replace("٫","."));}
+  let name=numeric
+   .replace(/^\s*(?:\d+\s*[.)\-:#|]\s*)+/," ")
+   .replace(/\d+(?:[.,٫]\d{1,3})?/g," ")
+   .replace(/\b(?:dh|mad|dhs|pcs|piece|pieces|kg|g|l|ml|unité|unites|u)\b/gi," ")
+   .replace(/[|;،,:•]+/g," ").replace(/\s+/g," ").trim();
+  name=name.replace(/^[\s\-–—]+|[\s\-–—]+$/g,"");
+  if(name.length<2||!/[\p{L}]/u.test(name)||ignored.test(name))continue;
+  const key=name.toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\p{L}\p{N}]/gu,"");
+  if(!key||seen.has(key))continue;
+  seen.add(key);
+  out.push({name,unit:"",price:Number.isFinite(price)?Math.max(0,price):0,stock:0,raw});
  }
  return out;
 }
@@ -282,11 +285,12 @@ function renderProductImport(){
  const target=$("productImportRows");target.innerHTML="";
  productImportDraft.forEach((x,i)=>{
   const row=document.createElement("div");row.className="product-import-row";
-  row.innerHTML='<div class="product-import-detected"><span>المنتج المستخرج من الجدول</span><strong>'+esc(x.name)+'</strong><small>'+esc(x.raw)+'</small></div><label>اسم المنتج<input data-pname="'+i+'" value="'+esc(x.name)+'" maxlength="120"></label><label>الثمن المستخرج (قابل للتصحيح)<input data-pprice="'+i+'" type="number" min="0" step=".01" value="'+esc(x.price)+'"></label><p class="muted product-import-stock-note">المخزون: سيُضاف بصفر، ويمكنك إدخال الكمية يدوياً بعد الاستيراد.</p>';
+  row.innerHTML='<div class="product-import-detected"><span>المنتج رقم '+(i+1)+'</span><strong>'+esc(x.name)+'</strong><small>النص المقروء: '+esc(x.raw)+'</small></div><label>اسم المنتج<input data-pname="'+i+'" value="'+esc(x.name)+'" maxlength="120"></label><label>الثمن (قابل للتصحيح)<input data-pprice="'+i+'" type="number" min="0" step=".01" value="'+esc(x.price)+'"></label><button type="button" class="outline product-import-remove" data-premove="'+i+'">حذف هذا السطر</button><p class="muted product-import-stock-note">المخزون سيُسجّل بصفر، ويمكنك إدخال الكمية يدوياً بعد الاستيراد.</p>';
   target.append(row);
  });
- $("productImportCount").textContent=productImportDraft.length+" منتج مستخرج";
+ $("productImportCount").textContent=productImportDraft.length+" منتج للمراجعة";
  $("productImportReview").classList.toggle("hidden",!productImportDraft.length);
+ target.querySelectorAll("[data-premove]").forEach(btn=>btn.addEventListener("click",()=>{productImportDraft.splice(Number(btn.dataset.premove),1);renderProductImport()}));
 }
 async function scanProductTable(){
  const btn=$("scanProductsBtn"),status=$("productImportStatus"),file=$("productImportFile").files[0];
@@ -296,25 +300,26 @@ async function scanProductTable(){
  try{
   status.textContent="تحميل محرك القراءة...";
   const worker=await invoiceWorker("productImportStatus");let text="";
+  const addOcrResult=result=>{const d=result&&result.data;if(d&&Array.isArray(d.lines)&&d.lines.length)text+="\n"+d.lines.map(line=>line.text||"").join("\n");else text+="\n"+(d&&d.text||"")};
   if(file.type==="application/pdf"||file.name.toLowerCase().endsWith(".pdf")){
    await invoiceLoadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js","pdfjsLib");
    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise,pages=Math.min(pdf.numPages,10);
-   for(let n=1;n<=pages;n++){status.textContent="قراءة الصفحة "+n+" من "+pages;const page=await pdf.getPage(n),vp=page.getViewport({scale:1.7}),canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;text+="\n"+(await worker.recognize(canvas)).data.text;canvas.width=canvas.height=1}
+   for(let n=1;n<=pages;n++){status.textContent="قراءة الصفحة "+n+" من "+pages;const page=await pdf.getPage(n),vp=page.getViewport({scale:2}),canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;addOcrResult(await worker.recognize(canvas));canvas.width=canvas.height=1}
    if(pdf.numPages>10)toast("تمت قراءة أول 10 صفحات فقط");
-  }else{text=(await worker.recognize(file)).data.text}
+  }else{addOcrResult(await worker.recognize(file))}
   productImportDraft=productImportParse(text);renderProductImport();
-  status.textContent=productImportDraft.length?"تم استخراج "+productImportDraft.length+" اسم محتمل. راجع الأسماء والأثمنة والمخزون قبل الإضافة.":"ما قدرناش نستخرجو أسماء واضحة؛ جرب صورة أوضح أو PDF بجودة أفضل.";
- }catch(e){status.textContent="تعذر قراءة الملف: "+(e.message||"خطأ غير معروف");console.error("Product table OCR:",e)}
- finally{btn.disabled=false;btn.textContent="قراءة جدول المنتجات"}
+  status.textContent=productImportDraft.length?"تم العثور على "+productImportDraft.length+" سطراً محتملاً. صحّح الأسماء والأثمنة واحذف السطور غير الصحيحة قبل الإضافة.":"لم تظهر أسماء واضحة. جرّب صورة مستقيمة وواضحة يظهر فيها الجدول كاملاً.";
+ }catch(e){status.textContent="تعذرت قراءة الملف: "+(e.message||"خطأ غير معروف");console.error("Product table OCR:",e)}
+ finally{btn.disabled=false;btn.textContent="قراءة الجدول من جديد"}
 }
-$("productImportFile").addEventListener("change",()=>{$("productImportStatus").textContent=$("productImportFile").files[0]?"تم اختيار: "+$("productImportFile").files[0].name+" — اضغط قراءة جدول المنتجات.":"لم يتم اختيار ملف."});
+$("productImportFile").addEventListener("change",()=>{$("productImportStatus").textContent=$("productImportFile").files[0]?"تم اختيار الملف: "+$("productImportFile").files[0].name+" — اضغط على قراءة الجدول.":"لم يتم اختيار ملف."});
 $("scanProductsBtn").addEventListener("click",scanProductTable);
 $("saveImportedProducts").addEventListener("click",async()=>{
  const rows=[...$("productImportRows").querySelectorAll(".product-import-row")];
- const items=rows.map((r)=>({name:r.querySelector("[data-pname]").value.trim(),unit:"",price:Number(r.querySelector("[data-pprice]").value),stock:0}));
+ const items=rows.map(r=>({name:r.querySelector("[data-pname]").value.trim(),unit:"",price:Number(r.querySelector("[data-pprice]").value),stock:0}));
  if(!items.length||items.some(x=>!x.name||!Number.isFinite(x.price)||x.price<0))return toast("راجع أسماء المنتجات والأثمنة");
  const btn=$("saveImportedProducts");btn.disabled=true;btn.textContent="جاري الإضافة...";
- try{const result=await api("/admin/products/import",{method:"POST",body:JSON.stringify({items})});productImportDraft=[];$("productImportReview").classList.add("hidden");$("productImportStatus").textContent="تمت إضافة "+result.added+" منتج؛ تم تجاوز "+result.skipped+" منتج مكرر.";await loadState();toast("اكتمل استيراد المنتجات")}
+ try{const result=await api("/admin/products/import",{method:"POST",body:JSON.stringify({items})});productImportDraft=[];$("productImportReview").classList.add("hidden");$("productImportStatus").textContent="تمت إضافة "+result.added+" منتج؛ تم تجاوز "+result.skipped+" منتج مكرر. المخزون مضبوط على صفر.";await loadState();toast("اكتمل استيراد المنتجات")}
  catch(e){$("productImportStatus").textContent="تعذر حفظ المنتجات: "+e.message;toast(e.message)}
  finally{btn.disabled=false;btn.textContent="إضافة المنتجات إلى اللائحة"}
 });

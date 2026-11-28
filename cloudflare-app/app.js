@@ -282,10 +282,10 @@ function renderProductImport(){
  const target=$("productImportRows");target.innerHTML="";
  productImportDraft.forEach((x,i)=>{
   const row=document.createElement("div");row.className="product-import-row";
-  row.innerHTML='<div class="product-import-detected"><span>الاسم المستخرج من الجدول</span><strong>'+esc(x.name)+'</strong><small>'+esc(x.raw)+'</small></div><label>اسم المنتج<input data-pname="'+i+'" value="'+esc(x.name)+'" maxlength="120"></label><label>الوحدة<input data-punit="'+i+'" value="'+esc(x.unit)+'" maxlength="20" placeholder="قطعة، kg..."></label><label>الثمن<input data-pprice="'+i+'" type="number" min="0" step=".01" value="'+esc(x.price)+'"></label><label>المخزون<input data-pstock="'+i+'" type="number" min="0" step=".01" value="'+esc(x.stock)+'"></label>';
+  row.innerHTML='<div class="product-import-detected"><span>المنتج المستخرج من الجدول</span><strong>'+esc(x.name)+'</strong><small>'+esc(x.raw)+'</small></div><label>اسم المنتج<input data-pname="'+i+'" value="'+esc(x.name)+'" maxlength="120"></label><label>الثمن المستخرج (قابل للتصحيح)<input data-pprice="'+i+'" type="number" min="0" step=".01" value="'+esc(x.price)+'"></label><p class="muted product-import-stock-note">المخزون: سيُضاف بصفر، ويمكنك إدخال الكمية يدوياً بعد الاستيراد.</p>';
   target.append(row);
  });
- $("productImportCount").textContent=productImportDraft.length+" منتج محتمل";
+ $("productImportCount").textContent=productImportDraft.length+" منتج مستخرج";
  $("productImportReview").classList.toggle("hidden",!productImportDraft.length);
 }
 async function scanProductTable(){
@@ -311,12 +311,12 @@ $("productImportFile").addEventListener("change",()=>{$("productImportStatus").t
 $("scanProductsBtn").addEventListener("click",scanProductTable);
 $("saveImportedProducts").addEventListener("click",async()=>{
  const rows=[...$("productImportRows").querySelectorAll(".product-import-row")];
- const items=rows.map((r)=>({name:r.querySelector("[data-pname]").value.trim(),unit:r.querySelector("[data-punit]").value.trim(),price:Number(r.querySelector("[data-pprice]").value),stock:Number(r.querySelector("[data-pstock]").value)}));
- if(!items.length||items.some(x=>!x.name||!Number.isFinite(x.price)||x.price<0||!Number.isFinite(x.stock)||x.stock<0))return toast("راجع أسماء المنتجات والأثمنة والمخزون");
+ const items=rows.map((r)=>({name:r.querySelector("[data-pname]").value.trim(),unit:"",price:Number(r.querySelector("[data-pprice]").value),stock:0}));
+ if(!items.length||items.some(x=>!x.name||!Number.isFinite(x.price)||x.price<0))return toast("راجع أسماء المنتجات والأثمنة");
  const btn=$("saveImportedProducts");btn.disabled=true;btn.textContent="جاري الإضافة...";
  try{const result=await api("/admin/products/import",{method:"POST",body:JSON.stringify({items})});productImportDraft=[];$("productImportReview").classList.add("hidden");$("productImportStatus").textContent="تمت إضافة "+result.added+" منتج؛ تم تجاوز "+result.skipped+" منتج مكرر.";await loadState();toast("اكتمل استيراد المنتجات")}
  catch(e){$("productImportStatus").textContent="تعذر حفظ المنتجات: "+e.message;toast(e.message)}
- finally{btn.disabled=false;btn.textContent="إضافة المنتجات للمخزون دفعة واحدة"}
+ finally{btn.disabled=false;btn.textContent="إضافة المنتجات إلى اللائحة"}
 });
 
 function invoiceParse(text){

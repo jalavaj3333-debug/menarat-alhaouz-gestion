@@ -176,6 +176,23 @@ async function handle(request, env) {
   }
   if (!user) return json({ error: "Authentication required" }, 401);
 
+  if (path === "/api/backup" && request.method === "GET") {
+    if (!requireAdmin(user)) return json({ error: "Admin permission required" }, 403);
+    const names = ["products","employees","zones","suppliers","invoices","invoice_lines","customers","expenses","debts","debt_payments","cash_transactions"];
+    const tables = {};
+    for (const name of names) {
+      const result = await env.DB.prepare("SELECT * FROM " + name).all();
+      tables[name] = result.results || [];
+    }
+    return json({
+      format: "menarat-cloudflare-backup",
+      version: 1,
+      createdAt: new Date().toISOString(),
+      note: "Operational data only. Login accounts and sessions are intentionally excluded.",
+      tables
+    });
+  }
+
   if (path === "/api/state" && request.method === "GET") {
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS debts (id TEXT PRIMARY KEY, type TEXT NOT NULL, person TEXT NOT NULL, total_amount REAL NOT NULL, paid_amount REAL NOT NULL DEFAULT 0, due_date TEXT, notes TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS debt_payments (id TEXT PRIMARY KEY, debt_id TEXT NOT NULL, amount REAL NOT NULL, payment_date TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();

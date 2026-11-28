@@ -180,10 +180,14 @@ async function handle(request, env) {
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS debts (id TEXT PRIMARY KEY, type TEXT NOT NULL, person TEXT NOT NULL, total_amount REAL NOT NULL, paid_amount REAL NOT NULL DEFAULT 0, due_date TEXT, notes TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS debt_payments (id TEXT PRIMARY KEY, debt_id TEXT NOT NULL, amount REAL NOT NULL, payment_date TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS expenses (id TEXT PRIMARY KEY, expense_date TEXT NOT NULL, category TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', amount REAL NOT NULL CHECK(amount > 0), created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), active INTEGER NOT NULL DEFAULT 1)").run();
-    const [products, employees, zones, suppliers, expenses, debts, invoices] = await Promise.all([
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS customers (id TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
+    try { await env.DB.prepare("ALTER TABLE invoices ADD COLUMN customer_name TEXT NOT NULL DEFAULT ''").run(); }
+    catch (error) { if (!/duplicate column/i.test(String(error?.message || error))) throw error; }
+    const [products, employees, zones, suppliers, customers, expenses, debts, invoices] = await Promise.all([
       env.DB.prepare("SELECT id, name AS nom, unit AS unite, price AS prix, opening_stock AS stockInitial, current_stock AS stock, supplier_name AS fournisseur FROM products WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM employees WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM zones WHERE active=1 ORDER BY name").all(),
+      env.DB.prepare("SELECT id, name, phone, address, notes FROM customers WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name AS nom, phone AS tel FROM suppliers WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id,expense_date AS date,category,description,amount,created_by FROM expenses WHERE active=1 ORDER BY expense_date DESC,created_at DESC").all(),
       env.DB.prepare("SELECT d.*, COALESCE((SELECT SUM(p.amount) FROM debt_payments p WHERE p.debt_id=d.id),0) AS payments_total FROM debts d WHERE d.active=1 ORDER BY d.created_at DESC").all(),
@@ -191,14 +195,14 @@ async function handle(request, env) {
     ]);
     const operations = (invoices.results || []).filter(row => row.produit).map(row => ({
       id: row.line_id, factureId: row.id, invoiceRef: row.invoice_ref, date: row.operation_date, type: row.type,
-      employe: row.employee_name, fournisseur: row.supplier_name, zone: row.zone_name,
+      employe: row.employee_name, fournisseur: row.supplier_name, zone: row.zone_name, customer: row.customer_name || "",
       paiement: row.payment_status, produit: row.produit, unite: row.unite,
       quantite: row.quantite, prix: row.prix, total: row.total
     }));
     return json({
       user: { id: user.id, email: user.email, displayName: user.display_name, role: user.role },
       produits: products.results || [], employes: employees.results || [],
-      zones: zones.results || [], fournisseurs: suppliers.results || [],
+      zones: zones.results || [], fournisseurs: suppliers.results || [], customers: customers.results || [],
       operations, expenses: expenses.results || [], debts: debts.results || [], panier: []
     });
   }
@@ -269,6 +273,13 @@ async function handle(request, env) {
     if (type === "vente" && !zone) return json({ error: "Zone is required" }, 400);
     const supplier = type === "achat" ? clean(data.supplier, 120) : "";
     if (type === "achat" && !supplier) return json({ error: "Supplier is required" }, 400);
+    const customerId = type === "vente" ? clean(data.customerId || "", 80) : "";
+    let customerName = "";
+    if (customerId) {
+      const customer = await env.DB.prepare("SELECT name FROM customers WHERE id=? AND active=1").bind(customerId).first();
+      if (!customer) return json({ error: "الزبون المحدد غير موجود" }, 400);
+      customerName = customer.name;
+    }
     const employeeName = type === "vente"
       ? (user.role === "employe" ? user.display_name : clean(data.employeeName || user.display_name, 120))
       : supplier;
@@ -308,9 +319,9 @@ async function handle(request, env) {
     const stockCondition = type === "vente"
       ? ` AND NOT EXISTS (SELECT 1 FROM products WHERE ${shortageParts.join(" OR ")})`
       : "";
-    statements.push(env.DB.prepare(`INSERT INTO invoices(id,invoice_ref,type,operation_date,month_key,employee_name,employee_user_id,supplier_name,zone_name,payment_status,created_at_ms)
-      SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE 1=1${stockCondition}`).bind(
-        invoiceId, invoiceRef, type, date, date.slice(0,7), employeeName, employeeUserId, supplier, zone, payment, Date.now(), ...shortageArgs
+    statements.push(env.DB.prepare(`INSERT INTO invoices(id,invoice_ref,type,operation_date,month_key,employee_name,employee_user_id,supplier_name,zone_name,payment_status,created_at_ms,customer_name)
+      SELECT ?,?,?,?,?,?,?,?,?,?,?,? WHERE 1=1${stockCondition}`).bind(
+        invoiceId, invoiceRef, type, date, date.slice(0,7), employeeName, employeeUserId, supplier, zone, payment, Date.now(), customerName, ...shortageArgs
       ));
     for (const [name, qty] of aggregated) {
       statements.push(type === "vente"
@@ -339,7 +350,8 @@ async function handle(request, env) {
       products: { table: "products", fields: ["name","unit","price","opening_stock","current_stock","supplier_name"] },
       employees: { table: "employees", fields: ["name"] },
       zones: { table: "zones", fields: ["name"] },
-      suppliers: { table: "suppliers", fields: ["name","phone"] }
+      suppliers: { table: "suppliers", fields: ["name","phone"] },
+      customers: { table: "customers", fields: ["name","phone","address","notes"] }
     };
     const cfg = tables[resource];
     if (!cfg) return json({ error: "Unknown admin resource" }, 404);
@@ -397,10 +409,21 @@ async function handle(request, env) {
         ]);
       } else if (resource === "zones") {
         await env.DB.prepare("INSERT INTO zones(id,name) VALUES(?,?)").bind(newId,name).run();
+      } else if (resource === "customers") {
+        await env.DB.prepare("INSERT INTO customers(id,name,phone,address,notes) VALUES(?,?,?,?,?)")
+          .bind(newId,name,clean(data.phone,40),clean(data.address,240),clean(data.notes,500)).run();
       } else {
         await env.DB.prepare("INSERT INTO suppliers(id,name,phone) VALUES(?,?,?)").bind(newId,name,clean(data.phone,40)).run();
       }
       return json({ ok: true, id: newId }, 201);
+    }
+    if (request.method === "PUT" && resource === "customers" && id) {
+      const data = await body(request);
+      const name = clean(data.name, 120), phone = clean(data.phone, 40), address = clean(data.address, 240), notes = clean(data.notes, 500);
+      if (!name) return json({ error: "اسم الزبون مطلوب" }, 400);
+      const result = await env.DB.prepare("UPDATE customers SET name=?,phone=?,address=?,notes=? WHERE id=? AND active=1")
+        .bind(name,phone,address,notes,id).run();
+      return Number(result.meta?.changes || 0) === 1 ? json({ ok: true }) : json({ error: "الزبون غير موجود" }, 404);
     }
     if (request.method === "PUT" && resource === "products" && id) {
       const data = await body(request);

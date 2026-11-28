@@ -531,10 +531,10 @@ function renderProductImport(){
  target.querySelectorAll("[data-premove]").forEach(btn=>btn.addEventListener("click",()=>{productImportDraft.splice(Number(btn.dataset.premove),1);renderProductImport()}));
 }
 function productImportAutoExtract(lines){
- const normalize=s=>String(s||"").toLocaleLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^\\p{L}\\p{N}]/gu,"");
+ const normalize=s=>String(s||"").toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\p{L}\p{N}]/gu,"");
  const toLatin=s=>String(s||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
- const clean=s=>String(s||"").replace(/\\s+/g," ").trim();
- const numberFrom=s=>{const v=toLatin(s).replace(/[٬،]/g,"").match(/\\d{1,8}(?:[.,٫]\\d{1,3})?/);if(!v)return null;const n=Number(v[0].replace(",",".").replace("٫","."));return Number.isFinite(n)?n:null};
+ const clean=s=>String(s||"").replace(/\s+/g," ").trim();
+ const numberFrom=s=>{const v=toLatin(s).replace(/[٬،]/g,"").match(/\d{1,8}(?:[.,٫]\d{1,3})?/);if(!v)return null;const n=Number(v[0].replace(",",".").replace("٫","."));return Number.isFinite(n)?n:null};
  const valid=(lines||[]).filter(line=>Array.isArray(line.words)&&line.words.length);
  let header=null;
  for(const line of valid){
@@ -564,7 +564,7 @@ function productImportAutoExtract(lines){
   const nameWords=words.filter(w=>(w.bbox.x0+w.bbox.x1)/2<leftName).sort((a,b)=>a.bbox.x0-b.bbox.x0);
   const priceWords=words.filter(w=>{const x=(w.bbox.x0+w.bbox.x1)/2;return x>=leftPrice&&x<=rightPrice}).sort((a,b)=>a.bbox.x0-b.bbox.x0);
   const name=clean(nameWords.map(w=>w.text).join(" ")),price=numberFrom(priceWords.map(w=>w.text).join(" "));
-  if(name.length>1&&/[A-Za-zÀ-ÿ\\u0600-\\u06FF]/u.test(name)&&price!==null){
+  if(name.length>1&&/[A-Za-zÀ-ÿ\u0600-\u06FF]/u.test(name)&&price!==null){
    if(!/^(designation|designe|produit|product|article|total|montant)$/i.test(normalize(name)))rows.push({name,unit:"",price,stock:0,raw:clean(line.text||line.words.map(w=>w.text).join(" "))});
   }
  }

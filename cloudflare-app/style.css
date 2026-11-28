@@ -852,3 +852,8 @@ body.dark-mode .product-import,body.dark-mode .product-import-row{background:var
 :root[data-theme="dark"] .backup-icon{background:#493b26}
 :root[data-theme="dark"] .backup-warning{background:#332c20;border-color:#665333;color:#efd5a6}
 @media(max-width:650px){.backup-intro{align-items:flex-start}.backup-actions{align-items:stretch;flex-direction:column}.backup-actions button{width:100%}}
+
+.product-import-mapping{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr)) auto;gap:12px;align-items:end;padding:14px;margin:14px 0;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)}
+.product-import-mapping label{display:grid;gap:6px;font-size:12px;font-weight:700}
+.product-import-mapping select{width:100%;min-height:42px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+@media(max-width:650px){.product-import-mapping{grid-template-columns:1fr}.product-import-mapping button{width:100%}}

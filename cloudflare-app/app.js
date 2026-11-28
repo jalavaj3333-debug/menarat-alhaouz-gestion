@@ -257,8 +257,8 @@ async function invoiceWorker(statusId="invoiceScanStatus"){if(invoiceOcrWorker)r
 let productImportDraft=[];
 function productImportParse(text){
  const out=[],seen=new Set();
- const cleanName=s=>String(s||"").replace(/^\\s*(?:[0-9٠-٩]+[.)\\-:|]\\s*)+/,"").replace(/[|;،,:]+/g," ").replace(/\\s+/g," ").trim();
- const lines=text.split(/\\r?\\n/).map(x=>x.replace(/\\s+/g," ").trim()).filter(x=>x.length>2);
+ const cleanName=s=>String(s||"").replace(/^\s*(?:[0-9٠-٩]+[.)\-:|]\s*)+/,"").replace(/[|;،,:]+/g," ").replace(/\s+/g," ").trim();
+ const lines=text.split(/\r?\n/).map(x=>x.replace(/\s+/g," ").trim()).filter(x=>x.length>2);
  for(const raw of lines){
   const nums=[...raw.matchAll(/[0-9٠-٩]+(?:[.,٫][0-9٠-٩]{1,3})?/g)];
   let name=cleanName(raw);
@@ -268,9 +268,9 @@ function productImportParse(text){
    if(prefix.length>=2)name=prefix;
    else name=cleanName(raw.replace(/[0-9٠-٩]+(?:[.,٫][0-9٠-٩]{1,3})?/g," "));
   }else name=cleanName(raw);
-  name=name.replace(/\\b(?:dh|mad|dhs|pcs|piece|pieces|kg|g|l|ml)\\b/gi," ").replace(/\\s+/g," ").trim();
-  if(name.length<2||!/[\\p{L}]/u.test(name))continue;
-  const key=name.toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]/gu,"");
+  name=name.replace(/\b(?:dh|mad|dhs|pcs|piece|pieces|kg|g|l|ml)\b/gi," ").replace(/\s+/g," ").trim();
+  if(name.length<2||!/[\p{L}]/u.test(name))continue;
+  const key=name.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
   if(!key||seen.has(key))continue;seen.add(key);
   const values=nums.map(m=>Number(m[0].replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(",",".").replace("٫","."))).filter(Number.isFinite);
   const price=values.length?values[values.length-1]:0;
@@ -299,7 +299,7 @@ async function scanProductTable(){
   if(file.type==="application/pdf"||file.name.toLowerCase().endsWith(".pdf")){
    await invoiceLoadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js","pdfjsLib");
    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise,pages=Math.min(pdf.numPages,10);
-   for(let n=1;n<=pages;n++){status.textContent="قراءة الصفحة "+n+" من "+pages;const page=await pdf.getPage(n),vp=page.getViewport({scale:1.7}),canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;text+="\\n"+(await worker.recognize(canvas)).data.text;canvas.width=canvas.height=1}
+   for(let n=1;n<=pages;n++){status.textContent="قراءة الصفحة "+n+" من "+pages;const page=await pdf.getPage(n),vp=page.getViewport({scale:1.7}),canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;text+="\n"+(await worker.recognize(canvas)).data.text;canvas.width=canvas.height=1}
    if(pdf.numPages>10)toast("تمت قراءة أول 10 صفحات فقط");
   }else{text=(await worker.recognize(file)).data.text}
   productImportDraft=productImportParse(text);renderProductImport();

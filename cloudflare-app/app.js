@@ -398,6 +398,40 @@ function invoiceLoadScript(src,key){return new Promise((resolve,reject)=>{if(win
 async function invoiceWorker(statusId="invoiceScanStatus"){invoiceOcrStatusTarget=statusId;if(invoiceOcrWorker)return invoiceOcrWorker;await invoiceLoadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js","Tesseract");invoiceOcrWorker=await Tesseract.createWorker("ara+fra+eng",1,{logger:m=>{if(m.status==="recognizing text"&&$(invoiceOcrStatusTarget))$(invoiceOcrStatusTarget).textContent="جاري قراءة الملف... "+Math.round((m.progress||0)*100)+"%"}});return invoiceOcrWorker}
 
 let productImportDraft=[];
+let productImportOcrLines=[];
+let productImportColumnCenters=[];
+function productImportBuildColumns(lines){
+ const words=lines.flatMap(line=>(line.words||[]).filter(w=>w.text&&w.bbox&&Number.isFinite(w.bbox.x0)&&Number.isFinite(w.bbox.x1)).map(w=>({x:(w.bbox.x0+w.bbox.x1)/2})));
+ if(!words.length)return [];
+ const maxX=Math.max(...words.map(w=>w.x),1),gap=Math.max(18,maxX*.035),sorted=[...words].sort((a,b)=>a.x-b.x),clusters=[];
+ for(const w of sorted){let c=clusters[clusters.length-1];if(!c||w.x-c.last>gap){c={sum:0,n:0,last:w.x};clusters.push(c)}c.sum+=w.x;c.n++;c.last=w.x}
+ const centers=clusters.map(c=>c.sum/c.n),merged=[];
+ for(const x of centers){const p=merged[merged.length-1];if(p&&x-p.center<maxX*.055){p.center=(p.center*p.n+x)/(p.n+1);p.n++}else merged.push({center:x,n:1})}
+ return merged.length>1?merged.map(x=>x.center):[];
+}
+function productImportApplyColumns(){
+ const nameCol=Number($("productImportNameColumn").value),priceCol=Number($("productImportPriceColumn").value);
+ if(!Number.isInteger(nameCol)||!Number.isInteger(priceCol)||nameCol===priceCol){toast("اختار عمودين مختلفين للاسم والثمن");return}
+ const toLatin=s=>String(s||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+ const clean=s=>String(s||"").replace(/\s+/g," ").trim();
+ const priceOf=s=>{const m=toLatin(s).replace(/[٬،]/g,"").match(/(?:^|[^\d])(\d{1,8}(?:[.,٫]\d{1,3})?)(?:\s*(?:dh|dhs|mad|د\.?م\.?)?\s*$)/i);if(!m)return null;const n=Number(m[1].replace(",",".").replace("٫","."));return Number.isFinite(n)?n:null};
+ const centers=productImportColumnCenters;productImportDraft=[];
+ for(const line of productImportOcrLines){
+  const cells=centers.map(()=>[]);
+  for(const w of (line.words||[])){if(!w.text||!w.bbox)continue;const x=(w.bbox.x0+w.bbox.x1)/2;let best=0,dist=Infinity;centers.forEach((c,i)=>{const d=Math.abs(c-x);if(d<dist){dist=d;best=i}});cells[best].push(w.text)}
+  const name=clean(cells[nameCol].join(" ")),raw=clean(line.text||(line.words||[]).map(w=>w.text).join(" ")),price=priceOf(cells[priceCol].join(" "));
+  if(name.length>1&&/[A-Za-zÀ-ÿ\u0600-\u06FF]/u.test(name)&&price!==null)productImportDraft.push({name,unit:"",price,stock:0,raw});
+ }
+ renderProductImport();$("productImportStatus").textContent=productImportDraft.length?"تم استخراج "+productImportDraft.length+" سطر حسب الأعمدة المختارة. راجع النتائج قبل الحفظ.":"ما لقيناش صفوف فيها اسم وثمن واضحين. جرّب تبديل الأعمدة.";
+}
+function productImportSetupColumns(lines){
+ productImportOcrLines=(lines||[]).filter(x=>x&&Array.isArray(x.words)&&x.words.length);
+ productImportColumnCenters=productImportBuildColumns(productImportOcrLines);
+ const panel=$("productImportColumnMapping"),name=$("productImportNameColumn"),price=$("productImportPriceColumn");name.innerHTML="";price.innerHTML="";
+ if(productImportColumnCenters.length<2){panel.classList.add("hidden");return false}
+ productImportColumnCenters.forEach((x,i)=>{const label="العمود "+(i+1);name.add(new Option(label,String(i)));price.add(new Option(label,String(i)))});
+ name.value="0";price.value=String(productImportColumnCenters.length-1);panel.classList.remove("hidden");return true;
+}
 function productImportParse(text,ocrLines=[]){
  const out=[],seen=new Set();
  const toLatin=s=>String(s||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
@@ -495,13 +529,15 @@ async function scanProductTable(){
    for(let n=1;n<=pages;n++){status.textContent="قراءة الصفحة "+n+" من "+pages;const page=await pdf.getPage(n),vp=page.getViewport({scale:2}),canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;addOcrResult(await worker.recognize(canvas));canvas.width=canvas.height=1}
    if(pdf.numPages>10)toast("تمت قراءة أول 10 صفحات فقط");
   }else{addOcrResult(await worker.recognize(file))}
-  productImportDraft=productImportParse(text,ocrLines);renderProductImport();
-  status.textContent=productImportDraft.length?"تم العثور على "+productImportDraft.length+" منتجاً محتملاً. تم استعمال عناوين الأعمدة إن أمكن؛ راجع الاسم والثمن لكل سطر قبل الحفظ.":"لم نتعرف على صفوف واضحة. جرّب صورة مستقيمة وواضحة يظهر فيها الجدول كاملاً مع عناوين الأعمدة.";
+  const mapped=productImportSetupColumns(ocrLines);
+  if(mapped){productImportDraft=[];renderProductImport();status.textContent="اختار عمود اسم المنتج وعمود الثمن، ثم اضغط تطبيق الأعمدة. الترتيب يمكن أن يختلف من جدول لآخر.";}
+  else{productImportDraft=productImportParse(text,ocrLines);renderProductImport();status.textContent=productImportDraft.length?"تم العثور على سطور محتملة. راجع وصحح كل اسم وثمن قبل الحفظ.":"لم نتعرف على صفوف واضحة. جرّب صورة مستقيمة وواضحة يظهر فيها الجدول كاملاً.";} 
  }catch(e){status.textContent="تعذرت قراءة الملف: "+(e.message||"خطأ غير معروف");console.error("Product table OCR:",e)}
  finally{btn.disabled=false;btn.textContent="قراءة الجدول من جديد"}
 }
 $("productImportFile").addEventListener("change",()=>{$("productImportStatus").textContent=$("productImportFile").files[0]?"تم اختيار الملف: "+$("productImportFile").files[0].name+" — اضغط على قراءة الجدول.":"لم يتم اختيار ملف."});
 $("scanProductsBtn").addEventListener("click",scanProductTable);
+$("applyProductImportColumns").addEventListener("click",productImportApplyColumns);
 $("saveImportedProducts").addEventListener("click",async()=>{
  const rows=[...$("productImportRows").querySelectorAll(".product-import-row")];
  const items=rows.map(r=>({name:r.querySelector("[data-pname]").value.trim(),unit:"",price:Number(r.querySelector("[data-pprice]").value),stock:0}));

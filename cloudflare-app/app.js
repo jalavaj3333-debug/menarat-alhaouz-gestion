@@ -425,8 +425,8 @@ function productImportApplyColumns(){
  const nameCol=Number($("productImportNameColumn").value),priceCol=Number($("productImportPriceColumn").value);
  if(!Number.isInteger(nameCol)||!Number.isInteger(priceCol)||nameCol===priceCol){$("productImportStatus").textContent="اختار عمود الاسم وعمود الثمن بشكل مختلف.";toast("اختار عمودين مختلفين للاسم والثمن");return}
  const toLatin=s=>String(s||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
- const clean=s=>String(s||"").replace(/\\s+/g," ").trim();
- const priceOf=s=>{const m=toLatin(s).replace(/[٬،]/g,"").match(/(?:^|[^\\d])(\\d{1,8}(?:[.,٫]\\d{1,3})?)(?:\\s*(?:dh|dhs|mad|د\\.?م\\.?)?\\s*$)/i);if(!m)return null;const n=Number(m[1].replace(",",".").replace("٫","."));return Number.isFinite(n)?n:null};
+ const clean=s=>String(s||"").replace(/\s+/g," ").trim();
+ const priceOf=s=>{const m=toLatin(s).replace(/[٬،]/g,"").match(/(?:^|[^\d])(\d{1,8}(?:[.,٫]\d{1,3})?)(?:\s*(?:dh|dhs|mad|د\.?م\.?)?\s*$)/i);if(!m)return null;const n=Number(m[1].replace(",",".").replace("٫","."));return Number.isFinite(n)?n:null};
  const centers=productImportColumnCenters;productImportDraft=[];
  for(const line of productImportOcrLines){
   const cells=centers.map(()=>[]);
@@ -435,7 +435,7 @@ function productImportApplyColumns(){
    cells[best].push(segment.words.map(w=>w.text).join(" "));
   }
   const name=clean(cells[nameCol].join(" ")),raw=clean(line.text||(line.words||[]).map(w=>w.text).join(" ")),price=priceOf(cells[priceCol].join(" "));
-  if(name.length>1&&/[A-Za-zÀ-ÿ\\u0600-\\u06FF]/u.test(name)&&price!==null&&!/^(?:designation|produit|product|article|اسم|المنتج|الثمن|السعر|prix|price)$/i.test(name))productImportDraft.push({name,unit:"",price,stock:0,raw});
+  if(name.length>1&&/[A-Za-zÀ-ÿ\u0600-\u06FF]/u.test(name)&&price!==null&&!/^(?:designation|produit|product|article|اسم|المنتج|الثمن|السعر|prix|price)$/i.test(name))productImportDraft.push({name,unit:"",price,stock:0,raw});
  }
  renderProductImport();
  $("productImportStatus").textContent=productImportDraft.length?"نجح الاختبار: تم استخراج "+productImportDraft.length+" سطر. صحح الاسم والثمن قبل الحفظ.":"لم تظهر نتائج صالحة. بدّل اختيار الأعمدة وجرب من جديد؛ لم يتم حفظ أي منتج.";

@@ -789,3 +789,12 @@ body.dark-mode .product-import,body.dark-mode .product-import-row{background:var
  #page-customers .form-grid{grid-template-columns:1fr}
  #page-customers .form-grid .wide{grid-column:1}
 }
+
+/* Cash register */
+.cash-stats .stat-card:first-child{border-top:3px solid var(--gold)}
+.cash-stats .stat-card strong{font-size:clamp(19px,2.2vw,27px);font-weight:800}
+#cashForm{margin-bottom:4px}
+#cashTable{margin-top:18px;overflow-x:auto}
+#cashTable .data-table td:nth-child(5){font-weight:800;white-space:nowrap}
+[data-theme="dark"] .cash-stats .stat-card{background:var(--surface)}
+@media(max-width:640px){.cash-stats{grid-template-columns:1fr 1fr}.cash-stats .stat-card:first-child{grid-column:1/-1}}

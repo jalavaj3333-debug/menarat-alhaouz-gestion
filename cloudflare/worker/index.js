@@ -307,7 +307,7 @@ async function handle(request, env) {
     }
     const deletedAt = new Date().toISOString();
     const statements = [
-      env.DB.prepare("UPDATE invoices SET deleted_at=? WHERE id=? AND deleted_at IS NULL").bind(deletedAt,id)
+      env.DB.prepare("UPDATE invoices SET deleted_at=? WHERE id=? AND deleted_at IS NULL AND (type != 'achat' OR NOT EXISTS (SELECT 1 FROM invoice_lines l LEFT JOIN products p ON p.name=l.product_name WHERE l.invoice_id=invoices.id GROUP BY l.product_name HAVING p.id IS NULL OR SUM(l.quantity)>MAX(p.current_stock)))").bind(deletedAt,id)
     ];
     for (const [name, quantity] of totals) {
       statements.push(invoice.type === "vente"

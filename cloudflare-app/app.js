@@ -1,7 +1,7 @@
 /* Independent Cloudflare edition. API is expected on the same host under /api.
    It does not load Firebase SDKs or read Firebase data. */
 const API = "/api";
-const state = { user:null, data:{ produits:[], employes:[], zones:[], fournisseurs:[], customers:[], operations:[], expenses:[], debts:[] } };
+const state = { user:null, data:{ produits:[], employes:[], zones:[], fournisseurs:[], customers:[], operations:[], expenses:[], debts:[], cashTransactions:[] } };
 const $ = id => document.getElementById(id);
 const THEME_STORAGE_KEY = "menarat-theme";
 function applyTheme(theme){
@@ -39,11 +39,11 @@ function setRoleUI(){document.querySelectorAll(".admin-only").forEach(el=>el.cla
 function showLogin(){ $("loginView").classList.remove("hidden");$("appView").classList.add("hidden") }
 function showApp(){ $("loginView").classList.add("hidden");$("appView").classList.remove("hidden");setRoleUI();go("overview");loadState() }
 async function loadState(){try{state.data=await api("/state");renderAll();updateSaleType()}catch(e){toast(e.message)}}
-function go(page){document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));$("page-"+page)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));const names={overview:"الرئيسية",bilan:"الحصيلة Bilan",expenses:"المصاريف",debts:"الديون",customers:"إدارة الزبائن",products:"المنتجات والمخزون","stock-alerts":"تنبيهات المخزون",sales:"تسجيل عملية",history:"الفواتير والعمليات",employees:"الموظفون",zones:"المناطق",suppliers:"الموردون"};$("pageTitle").textContent=names[page]||"الرئيسية"}
+function go(page){document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));$("page-"+page)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));const names={overview:"الرئيسية",bilan:"الحصيلة Bilan",expenses:"المصاريف",debts:"الديون",cash:"الصندوق النقدي",customers:"إدارة الزبائن",products:"المنتجات والمخزون","stock-alerts":"تنبيهات المخزون",sales:"تسجيل عملية",history:"الفواتير والعمليات",employees:"الموظفون",zones:"المناطق",suppliers:"الموردون"};$("pageTitle").textContent=names[page]||"الرئيسية"}
 function table(headers,rows){if(!rows.length)return '<p class="muted">لا توجد بيانات مسجلة حالياً.</p>';return '<table class="data-table"><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table>'}
 function renderAll(){const d=state.data;const sales=d.operations.filter(x=>x.type==="vente"),buys=d.operations.filter(x=>x.type==="achat");const now=new Date();const today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,"0"),String(now.getDate()).padStart(2,"0")].join("-");const month=today.slice(0,7);const sumFor=list=>list.reduce((sum,x)=>sum+(Number(x.total)||0),0);$("statProducts").textContent=d.produits.length;$("statStock").textContent=d.produits.reduce((s,p)=>s+(Number(p.stock)||0),0).toLocaleString("fr-FR");$("statSales").textContent=new Set(sales.map(x=>x.factureId)).size;$("statPurchases").textContent=new Set(buys.map(x=>x.factureId)).size;$("statSalesToday").textContent=money(sumFor(sales.filter(x=>x.date===today)));$("statSalesMonth").textContent=money(sumFor(sales.filter(x=>String(x.date||"").startsWith(month))));const dateLabel=new Intl.DateTimeFormat("ar-MA",{weekday:"long",year:"numeric",month:"long",day:"numeric"}).format(now);if($("overviewDate"))$("overviewDate").textContent=dateLabel;
 const recent=[...d.operations].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,7);$("recentList").innerHTML=table(["التاريخ","النوع","المنتج","الكمية","المجموع"],recent.map(x=>'<tr><td>'+esc(x.date)+'</td><td><span class="pill '+(x.type==="achat"?"buy":"")+'">'+(x.type==="achat"?"شراء":"بيع")+'</span></td><td>'+esc(x.produit)+'</td><td>'+esc(x.quantite)+'</td><td>'+money(x.total)+'</td></tr>'));
-renderProducts();renderHistory();renderNamedLists();renderCustomers();renderBilan();renderStockAlerts();renderExpenses();renderDebts();refreshSaleOptions()}
+renderProducts();renderHistory();renderNamedLists();renderCustomers();renderBilan();renderStockAlerts();renderExpenses();renderDebts();renderCash();refreshSaleOptions()}
 
 function getBilanOperations(){
  const from=$("bilanFrom")?.value||"",to=$("bilanTo")?.value||"";
@@ -148,6 +148,25 @@ function renderDebts(){
   return '<tr><td>'+type+'</td><td>'+esc(x.person)+'</td><td>'+money(x.total_amount)+'</td><td>'+money(x.paid_amount)+'</td><td><strong>'+money(remaining)+'</strong></td><td>'+esc(x.due_date||"—")+'</td><td>'+esc(x.notes||"—")+'</td><td>'+actions+'</td></tr>';
  }));
 }
+
+function renderCash(){
+ const list=state.data.cashTransactions||[];
+ const balance=list.reduce((sum,x)=>sum+(x.type==="income"||x.type==="opening"?Number(x.amount):-Number(x.amount)),0);
+ const today=new Date(),todayKey=[today.getFullYear(),String(today.getMonth()+1).padStart(2,"0"),String(today.getDate()).padStart(2,"0")].join("-");
+ const todayIn=list.filter(x=>x.date===todayKey&&(x.type==="income"||x.type==="opening")).reduce((s,x)=>s+Number(x.amount),0);
+ const todayOut=list.filter(x=>x.date===todayKey&&x.type==="expense").reduce((s,x)=>s+Number(x.amount),0);
+ $("cashBalance").textContent=money(balance);$("cashTodayIn").textContent=money(todayIn);$("cashTodayOut").textContent=money(todayOut);
+ $("cashTable").innerHTML=table(["التاريخ","نوع الحركة","التصنيف","التفاصيل","المبلغ","سجل بواسطة","إجراء"],list.map(x=>{
+  const label=x.type==="opening"?"رصيد افتتاحي":x.type==="income"?"إيداع / مداخيل":"سحب / مصروف";
+  const amount=(x.type==="expense"?"−":"+")+money(x.amount);
+  return '<tr><td>'+esc(x.date)+'</td><td>'+label+'</td><td>'+esc(x.category||"—")+'</td><td>'+esc(x.description||"—")+'</td><td><strong>'+amount+'</strong></td><td>'+esc(x.created_by)+'</td><td><button class="danger" data-delete-cash="'+esc(x.id)+'">حذف</button></td></tr>';
+ }));
+}
+async function deleteCashMovement(id){
+ if(!confirm("واش متأكد من حذف هاد الحركة من سجل الصندوق؟"))return;
+ try{await api("/cash-transactions/"+encodeURIComponent(id),{method:"DELETE"});await loadState();toast("تم حذف حركة الصندوق")}catch(e){toast(e.message)}
+}
+
 async function addDebtPayment(id){
  const amountText=prompt("مبلغ الأداء (DH)");if(amountText===null)return;
  const amount=Number(amountText);if(!Number.isFinite(amount)||amount<=0)return toast("أدخل مبلغاً صحيحاً");
@@ -245,12 +264,20 @@ $("debtForm").addEventListener("submit",async e=>{
  if(!payload.person||!Number.isFinite(payload.total)||payload.total<=0||!Number.isFinite(payload.paid)||payload.paid<0||payload.paid>payload.total)return toast("تأكد من الاسم والمبالغ");
  try{await api("/debts",{method:"POST",body:JSON.stringify(payload)});$("debtForm").reset();$("debtPaid").value="0";await loadState();toast("تم تسجيل الدين")}catch(err){toast(err.message)}
 });
+
+$("cashForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ const payload={type:$("cashType").value,date:$("cashDate").value,category:$("cashCategory").value.trim(),description:$("cashDescription").value.trim(),amount:Number($("cashAmount").value)};
+ if(!payload.date||!Number.isFinite(payload.amount)||payload.amount<=0)return toast("تأكد من التاريخ والمبلغ");
+ try{await api("/cash-transactions",{method:"POST",body:JSON.stringify(payload)});$("cashForm").reset();$("cashDate").value=new Date().toISOString().slice(0,10);$("cashType").value="income";await loadState();toast("تسجلت حركة الصندوق بنجاح")}catch(err){toast(err.message)}
+});
+
 $("expenseForm").addEventListener("submit",async e=>{e.preventDefault();const payload={date:$("expenseDate").value,category:$("expenseCategory").value,description:$("expenseDescription").value,amount:Number($("expenseAmount").value)};if(!payload.date||!Number.isFinite(payload.amount)||payload.amount<=0)return toast("تأكد من التاريخ والمبلغ");try{await api("/expenses",{method:"POST",body:JSON.stringify(payload)});$("expenseAmount").value="";$("expenseDescription").value="";await loadState();toast("تسجل المصروف بنجاح")}catch(err){toast(err.message)}});
 async function deleteExpense(id){if(!confirm("واش متأكد من حذف هاد المصروف؟"))return;try{await api("/expenses/"+encodeURIComponent(id),{method:"DELETE"});await loadState();toast("تحذف المصروف")}catch(err){toast(err.message)}}
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();$("loginError").textContent="";try{const result=await api("/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});state.user=result.user;showApp()}catch(err){$("loginError").textContent=err.message}});
 $("logoutBtn").onclick=async()=>{try{await api("/logout",{method:"POST",body:"{}"})}catch{}state.user=null;showLogin()};
 $("mainNav").addEventListener("click",e=>{const b=e.target.closest("[data-page]");if(b)go(b.dataset.page)});
-document.addEventListener("click",e=>{const customerEdit=e.target.closest("[data-edit-customer]");if(customerEdit)editCustomer(customerEdit.dataset.editCustomer);const pay=e.target.closest("[data-debt-pay]");if(pay)addDebtPayment(pay.dataset.debtPay);const debt=e.target.closest("[data-debt-delete]");if(debt)deleteDebt(debt.dataset.debtDelete);const expense=e.target.closest("[data-delete-expense]");if(expense)deleteExpense(expense.dataset.deleteExpense);const b=e.target.closest("[data-go]");if(b)go(b.dataset.go);const edit=e.target.closest("[data-edit-product]");if(edit)editProduct(edit.dataset.editProduct);const del=e.target.closest("[data-delete]");if(del)deleteItem(del)});
+document.addEventListener("click",e=>{const customerEdit=e.target.closest("[data-edit-customer]");if(customerEdit)editCustomer(customerEdit.dataset.editCustomer);const pay=e.target.closest("[data-debt-pay]");if(pay)addDebtPayment(pay.dataset.debtPay);const debt=e.target.closest("[data-debt-delete]");if(debt)deleteDebt(debt.dataset.debtDelete);const expense=e.target.closest("[data-delete-expense]");if(expense)deleteExpense(expense.dataset.deleteExpense);const cash=e.target.closest("[data-delete-cash]");if(cash)deleteCashMovement(cash.dataset.deleteCash);const b=e.target.closest("[data-go]");if(b)go(b.dataset.go);const edit=e.target.closest("[data-edit-product]");if(edit)editProduct(edit.dataset.editProduct);const del=e.target.closest("[data-delete]");if(del)deleteItem(del)});
 function exportHistoryCSV(){
   const rows=[["التاريخ","رقم الفاتورة","النوع","الموظف","المورد","المنطقة","المنتج","الوحدة","الكمية","ثمن الوحدة","المجموع","الأداء"]];
   const operations=[...getFilteredOperations()].sort((a,b)=>String(a.date).localeCompare(String(b.date)));

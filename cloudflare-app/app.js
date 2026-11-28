@@ -530,6 +530,46 @@ function renderProductImport(){
  $("productImportReview").classList.toggle("hidden",!productImportDraft.length);
  target.querySelectorAll("[data-premove]").forEach(btn=>btn.addEventListener("click",()=>{productImportDraft.splice(Number(btn.dataset.premove),1);renderProductImport()}));
 }
+function productImportAutoExtract(lines){
+ const normalize=s=>String(s||"").toLocaleLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^\\p{L}\\p{N}]/gu,"");
+ const toLatin=s=>String(s||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+ const clean=s=>String(s||"").replace(/\\s+/g," ").trim();
+ const numberFrom=s=>{const v=toLatin(s).replace(/[٬،]/g,"").match(/\\d{1,8}(?:[.,٫]\\d{1,3})?/);if(!v)return null;const n=Number(v[0].replace(",",".").replace("٫","."));return Number.isFinite(n)?n:null};
+ const valid=(lines||[]).filter(line=>Array.isArray(line.words)&&line.words.length);
+ let header=null;
+ for(const line of valid){
+  const words=line.words.filter(w=>w.text&&w.bbox&&Number.isFinite(w.bbox.x0)&&Number.isFinite(w.bbox.x1));
+  const tokens=words.map(w=>({w,t:normalize(w.text),x:(w.bbox.x0+w.bbox.x1)/2}));
+  const find=pattern=>tokens.filter(x=>pattern.test(x.t));
+  const designation=find(/^(designation|designe|libelle|produit|product|article)$/);
+  const qty=find(/^(quantite|quantity|qte)$/);
+  const prix=find(/^prix$/),unit=find(/^(unitaire|unitair|unite)$/),total=find(/^total$/);
+  if(!designation.length||!prix.length||!unit.length)continue;
+  const nearest=(a,b)=>a.reduce((best,x)=>{const y=b.slice().sort((m,n)=>Math.abs(m.x-x.x)-Math.abs(n.x-x.x))[0];return !best||Math.abs(y.x-x.x)<best.d?{x:(x.x+y.x)/2,d:Math.abs(y.x-x.x)}:best},null);
+  const pricePair=nearest(prix,unit);if(!pricePair)continue;
+  const nameX=designation.reduce((n,x)=>n+x.x,0)/designation.length;
+  const qtyX=qty.length?qty.reduce((n,x)=>n+x.x,0)/qty.length:null;
+  const totalX=total.length?total.reduce((n,x)=>n+x.x,0)/total.length:null;
+  if(!(nameX<pricePair.x))continue;
+  header={y:line.bbox?.y1??Math.max(...words.map(w=>w.bbox.y1)),nameX,priceX:pricePair.x,qtyX,totalX};break;
+ }
+ if(!header)return [];
+ const leftName=header.qtyX===null?(header.nameX+header.priceX)/2:(header.nameX+header.qtyX)/2;
+ const leftPrice=header.qtyX===null?(header.nameX+header.priceX)/2:(header.qtyX+header.priceX)/2;
+ const rightPrice=header.totalX===null?header.priceX+(header.priceX-leftPrice): (header.priceX+header.totalX)/2;
+ const rows=[];
+ for(const line of valid){
+  const y=line.bbox?(line.bbox.y0+line.bbox.y1)/2:0;if(y<=header.y)continue;
+  const words=line.words.filter(w=>w.text&&w.bbox&&Number.isFinite(w.bbox.x0)&&Number.isFinite(w.bbox.x1));
+  const nameWords=words.filter(w=>(w.bbox.x0+w.bbox.x1)/2<leftName).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+  const priceWords=words.filter(w=>{const x=(w.bbox.x0+w.bbox.x1)/2;return x>=leftPrice&&x<=rightPrice}).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+  const name=clean(nameWords.map(w=>w.text).join(" ")),price=numberFrom(priceWords.map(w=>w.text).join(" "));
+  if(name.length>1&&/[A-Za-zÀ-ÿ\\u0600-\\u06FF]/u.test(name)&&price!==null){
+   if(!/^(designation|designe|produit|product|article|total|montant)$/i.test(normalize(name)))rows.push({name,unit:"",price,stock:0,raw:clean(line.text||line.words.map(w=>w.text).join(" "))});
+  }
+ }
+ const seen=new Set();return rows.filter(x=>{const key=normalize(x.name);if(!key||seen.has(key))return false;seen.add(key);return true});
+}
 async function scanProductTable(){
  const btn=$("scanProductsBtn"),status=$("productImportStatus"),file=$("productImportFile").files[0];
  if(!file){status.textContent="اختار صورة أو ملف PDF أولاً.";return toast("اختار صورة أو PDF أولاً")}
@@ -549,9 +589,11 @@ async function scanProductTable(){
    for(let n=1;n<=pages;n++){status.textContent="قراءة الصفحة "+n+" من "+pages;const page=await pdf.getPage(n),vp=page.getViewport({scale:2}),canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;addOcrResult(await worker.recognize(canvas));canvas.width=canvas.height=1}
    if(pdf.numPages>10)toast("تمت قراءة أول 10 صفحات فقط");
   }else{addOcrResult(await worker.recognize(file))}
-  const mapped=productImportSetupColumns(ocrLines);
-  if(mapped){productImportDraft=[];renderProductImport();status.textContent="اختار عمود اسم المنتج وعمود الثمن، ثم اضغط تطبيق الأعمدة. الترتيب يمكن أن يختلف من جدول لآخر.";}
-  else{productImportDraft=productImportParse(text,ocrLines);renderProductImport();status.textContent=productImportDraft.length?"تم العثور على سطور محتملة. راجع وصحح كل اسم وثمن قبل الحفظ.":"لم نتعرف على صفوف واضحة. جرّب صورة مستقيمة وواضحة يظهر فيها الجدول كاملاً.";} 
+  $("productImportColumnMapping")?.classList.add("hidden");
+  productImportDraft=productImportAutoExtract(ocrLines);
+  if(!productImportDraft.length)productImportDraft=productImportParse(text,ocrLines);
+  renderProductImport();
+  status.textContent=productImportDraft.length?"تم استخراج "+productImportDraft.length+" منتج تلقائياً (الاسم وثمن الوحدة فقط). راجع النتائج وصححها قبل الحفظ؛ المخزون سيبقى صفراً.":"لم نتعرف على صفوف واضحة. جرّب صورة مستقيمة وواضحة يظهر فيها الجدول كاملاً.";
  }catch(e){status.textContent="تعذرت قراءة الملف: "+(e.message||"خطأ غير معروف");console.error("Product table OCR:",e)}
  finally{btn.disabled=false;btn.textContent="قراءة الجدول من جديد"}
 }

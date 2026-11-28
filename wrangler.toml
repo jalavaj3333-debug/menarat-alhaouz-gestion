@@ -9,3 +9,5 @@ database_id = "e93c5c03-75a8-405d-b387-c61f58de3f08"
 
 [vars]
 APP_ORIGIN = "https://menarat-alhaouz-gestion-a7y.pages.dev"
+
+# Trigger Cloudflare Worker deployment from cloudflare-migration.

@@ -766,3 +766,26 @@ body.dark-mode .product-import,body.dark-mode .product-import-row{background:var
 .product-import-remove{justify-self:start;min-height:34px;padding:6px 12px}
 .product-import .invoice-review-actions{display:flex;justify-content:flex-start;margin-top:16px}
 @media(max-width:700px){.product-import-rows{grid-template-columns:1fr}.product-import-row{grid-template-columns:1fr 1fr}.product-import .invoice-upload-row{align-items:stretch}.product-import .invoice-upload-row input,.product-import .invoice-upload-row button{width:100%;max-width:none}}
+
+
+/* Customer management */
+#page-customers .section-heading{margin-bottom:16px}
+#page-customers .form-panel{margin-bottom:16px}
+#page-customers .stats-grid{grid-template-columns:minmax(180px,240px);margin:12px 0}
+#page-customers .stat-card{min-height:86px;padding:14px 17px}
+#page-customers .stat-card strong{font-size:23px}
+#page-customers .toolbar{max-width:560px}
+#page-customers .table-wrap{margin-top:12px}
+#page-customers .data-table{min-width:700px}
+#page-customers .data-table td:first-child{min-width:150px}
+#page-customers .data-table td:nth-child(4){min-width:170px;max-width:280px;white-space:normal;overflow-wrap:anywhere}
+#page-customers .data-table td button{white-space:nowrap}
+#saleCustomerField select{width:100%}
+:root[data-theme="dark"] #page-customers .stat-card{background:var(--surface);border-color:var(--line)}
+@media(max-width:720px){
+ #page-customers .stats-grid{grid-template-columns:1fr}
+ #page-customers .toolbar{display:flex}
+ #page-customers .toolbar input{width:100%;max-width:none}
+ #page-customers .form-grid{grid-template-columns:1fr}
+ #page-customers .form-grid .wide{grid-column:1}
+}

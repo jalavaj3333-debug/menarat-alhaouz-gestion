@@ -747,3 +747,22 @@ footer{font-size:10px}
 @media(max-width:900px){.product-import-row{grid-template-columns:repeat(2,minmax(0,1fr))}.product-import-detected{grid-column:1/-1}}
 @media(max-width:520px){.product-import-row{grid-template-columns:1fr}.product-import-row label{grid-column:1}.product-import-row{padding:10px}}
 body.dark-mode .product-import,body.dark-mode .product-import-row{background:var(--surface)}
+
+/* Product table import review */
+.product-import{padding:18px}
+.product-import .invoice-import-head{align-items:center;gap:14px}
+.product-import .invoice-import-head h4{font-size:16px;margin:0 0 5px}
+.product-import .invoice-import-head p{margin:0;line-height:1.7}
+.product-import .invoice-upload-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 10px}
+.product-import .invoice-upload-row input[type=file]{flex:1;min-width:220px;max-width:100%;padding:10px;border:1px dashed var(--border);border-radius:10px;background:var(--surface-2)}
+.product-import-review{padding-top:14px;border-top:1px solid var(--border)}
+.product-import-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.product-import-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)}
+.product-import-detected{grid-column:1/-1;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.product-import-detected strong{font-size:14px;line-height:1.6}
+.product-import-row label{display:grid;gap:6px;font-size:12px;font-weight:700}
+.product-import-row input{min-height:40px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+.product-import-stock-note{grid-column:1/-1;margin:0;font-size:11px}
+.product-import-remove{justify-self:start;min-height:34px;padding:6px 12px}
+.product-import .invoice-review-actions{display:flex;justify-content:flex-start;margin-top:16px}
+@media(max-width:700px){.product-import-rows{grid-template-columns:1fr}.product-import-row{grid-template-columns:1fr 1fr}.product-import .invoice-upload-row{align-items:stretch}.product-import .invoice-upload-row input,.product-import .invoice-upload-row button{width:100%;max-width:none}}

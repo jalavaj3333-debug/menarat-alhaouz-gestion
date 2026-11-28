@@ -44,3 +44,6 @@ This endpoint succeeds only while the D1 users table is empty. After creating th
 
 ## Data separation — mandatory
 The Cloudflare D1 database starts empty. There is no Firebase export, import, copy, synchronization, or account transfer in this project. Do not reuse Firebase credentials or databases. Keep the old Firebase application untouched and independent.
+
+## Automated Worker deployment
+The Git-connected Worker deployment is configured to use the `cloudflare-migration` branch and run `npx wrangler deploy`. Keep the build command empty and retain the existing `DB` binding and `APP_ORIGIN` variable. Never switch this Worker deployment to `main`.

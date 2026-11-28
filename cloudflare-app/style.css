@@ -731,3 +731,19 @@ footer{font-size:10px}
 [data-theme="dark"] .invoice-detected-name{background:#303044;border-color:#5a536c}
 [data-theme="dark"] .invoice-detected-name strong{color:#f2f3f8}
 @media(max-width:720px){.invoice-review-row{grid-template-columns:1fr 1fr}.invoice-detected-name,.invoice-review-row>label,.invoice-review-row select,.invoice-review-row small{grid-column:1/-1}}
+
+
+/* Bulk product table import */
+.product-import{margin:14px 0 18px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.product-import-rows{display:grid;gap:12px;margin-top:12px}
+.product-import-row{display:grid;grid-template-columns:1.2fr repeat(4,minmax(110px,1fr));gap:10px;align-items:end;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2)}
+.product-import-row label{display:grid;gap:5px;font-size:12px;font-weight:700}
+.product-import-row input{width:100%;min-width:0}
+.product-import-detected{display:grid;gap:4px;min-width:0}
+.product-import-detected span,.product-import-detected small{font-size:11px;color:var(--muted)}
+.product-import-detected strong{font-size:13px;overflow-wrap:anywhere}
+.product-import-row small{grid-column:1/-1;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+.product-import-review{margin-top:14px}
+@media(max-width:900px){.product-import-row{grid-template-columns:repeat(2,minmax(0,1fr))}.product-import-detected{grid-column:1/-1}}
+@media(max-width:520px){.product-import-row{grid-template-columns:1fr}.product-import-row label{grid-column:1}.product-import-row{padding:10px}}
+body.dark-mode .product-import,body.dark-mode .product-import-row{background:var(--surface)}

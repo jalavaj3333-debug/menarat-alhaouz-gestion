@@ -39,7 +39,7 @@ function setRoleUI(){document.querySelectorAll(".admin-only").forEach(el=>el.cla
 function showLogin(){ $("loginView").classList.remove("hidden");$("appView").classList.add("hidden") }
 function showApp(){ $("loginView").classList.add("hidden");$("appView").classList.remove("hidden");setRoleUI();go("overview");loadState() }
 async function loadState(){try{state.data=await api("/state");renderAll();updateSaleType()}catch(e){toast(e.message)}}
-function go(page){document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));$("page-"+page)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));const names={overview:"الرئيسية",bilan:"الحصيلة Bilan",expenses:"المصاريف",debts:"الديون",cash:"الصندوق النقدي",notifications:"مركز الإشعارات",customers:"إدارة الزبائن",products:"المنتجات والمخزون","stock-alerts":"تنبيهات المخزون",sales:"تسجيل عملية",history:"الفواتير والعمليات",employees:"الموظفون",zones:"المناطق",suppliers:"الموردون"};$("pageTitle").textContent=names[page]||"الرئيسية"}
+function go(page){document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));$("page-"+page)?.classList.remove("hidden");document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));const names={overview:"الرئيسية",bilan:"الحصيلة Bilan",expenses:"المصاريف",debts:"الديون",cash:"الصندوق النقدي",notifications:"مركز الإشعارات",backups:"النسخ الاحتياطي",customers:"إدارة الزبائن",products:"المنتجات والمخزون","stock-alerts":"تنبيهات المخزون",sales:"تسجيل عملية",history:"الفواتير والعمليات",employees:"الموظفون",zones:"المناطق",suppliers:"الموردون"};$("pageTitle").textContent=names[page]||"الرئيسية"}
 function table(headers,rows){if(!rows.length)return '<p class="muted">لا توجد بيانات مسجلة حالياً.</p>';return '<table class="data-table"><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table>'}
 
 const NOTIFICATION_STORAGE_KEY="menarat-notifications-v1";
@@ -335,6 +335,21 @@ async function deleteExpense(id){if(!confirm("واش متأكد من حذف ها
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();$("loginError").textContent="";try{const result=await api("/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});state.user=result.user;showApp()}catch(err){$("loginError").textContent=err.message}});
 $("logoutBtn").onclick=async()=>{try{await api("/logout",{method:"POST",body:"{}"})}catch{}state.user=null;showLogin()};
 $("mainNav").addEventListener("click",e=>{const b=e.target.closest("[data-page]");if(b)go(b.dataset.page)});
+$("downloadBackupBtn")?.addEventListener("click",async()=>{
+ const button=$("downloadBackupBtn"),status=$("backupStatus");
+ button.disabled=true;status.textContent="جارٍ تجهيز النسخة الاحتياطية…";
+ try{
+  const backup=await api("/backup");
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json;charset=utf-8"});
+  const url=URL.createObjectURL(blob),link=document.createElement("a");
+  const stamp=new Date().toISOString().slice(0,10);
+  link.href=url;link.download="menarat-backup-"+stamp+".json";
+  document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
+  status.textContent="تم تنزيل النسخة بتاريخ "+new Date().toLocaleString("ar-MA");
+  toast("تم تحميل النسخة الاحتياطية");
+ }catch(err){status.textContent="تعذر إنشاء النسخة: "+err.message;toast(err.message)}
+ finally{button.disabled=false}
+});
 $("markAllNotificationsRead")?.addEventListener("click",()=>{const stored=readNotificationState();for(const item of buildNotifications())if(!stored.read.includes(item.id))stored.read.push(item.id);saveNotificationState(stored);renderNotifications();toast("تم تعليم جميع الإشعارات كمقروءة")});
 document.querySelectorAll("[data-notification-filter]").forEach(btn=>btn.addEventListener("click",()=>{notificationFilter=btn.dataset.notificationFilter;document.querySelectorAll("[data-notification-filter]").forEach(x=>x.classList.toggle("active",x===btn));renderNotifications()}));
 document.addEventListener("click",e=>{const notifRead=e.target.closest("[data-notification-read]");if(notifRead)updateNotificationState(notifRead.dataset.notificationRead,"read");const notifDismiss=e.target.closest("[data-notification-dismiss]");if(notifDismiss)updateNotificationState(notifDismiss.dataset.notificationDismiss,"dismiss");const notifGo=e.target.closest("[data-notification-go]");if(notifGo){const item=buildNotifications().find(x=>x.action===notifGo.dataset.notificationGo&&x.id);if(item)updateNotificationState(item.id,"read");go(notifGo.dataset.notificationGo)}const customerEdit=e.target.closest("[data-edit-customer]");if(customerEdit)editCustomer(customerEdit.dataset.editCustomer);const pay=e.target.closest("[data-debt-pay]");if(pay)addDebtPayment(pay.dataset.debtPay);const debt=e.target.closest("[data-debt-delete]");if(debt)deleteDebt(debt.dataset.debtDelete);const expense=e.target.closest("[data-delete-expense]");if(expense)deleteExpense(expense.dataset.deleteExpense);const cash=e.target.closest("[data-delete-cash]");if(cash)deleteCashMovement(cash.dataset.deleteCash);const b=e.target.closest("[data-go]");if(b)go(b.dataset.go);const edit=e.target.closest("[data-edit-product]");if(edit)editProduct(edit.dataset.editProduct);const del=e.target.closest("[data-delete]");if(del)deleteItem(del)});

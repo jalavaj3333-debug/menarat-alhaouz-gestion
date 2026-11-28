@@ -45,6 +45,7 @@
         <div class="nav-group-label admin-only">الإدارة والمالية</div>
         <button class="nav-item admin-only" data-page="expenses">د.م <span>المصاريف</span></button>
         <button class="nav-item admin-only" data-page="debts">د.ي <span>الديون</span></button>
+        <button class="nav-item admin-only" data-page="cash">د.ن <span>الصندوق النقدي</span></button>
         <button class="nav-item admin-only" data-page="customers">♙ <span>الزبائن</span></button>
         <button class="nav-item admin-only" data-page="bilan">▥ <span>التقارير والحصيلة</span></button>
         <div class="nav-group-label admin-only">إعدادات النشاط</div>
@@ -168,6 +169,28 @@
         </form></div>
         <div class="panel table-wrap" id="debtsTable"></div>
       </section>
+
+      <section id="page-cash" class="page hidden">
+        <div class="section-heading"><div><h3>الصندوق النقدي</h3><p>تتبع الرصيد الافتتاحي والإيداعات والسحوبات اليومية بشكل مستقل عن سجل المصاريف.</p></div></div>
+        <div class="stats-grid cash-stats">
+          <article class="stat-card"><span>الرصيد الحالي للصندوق</span><strong id="cashBalance">0.00 DH</strong></article>
+          <article class="stat-card"><span>مداخيل اليوم</span><strong id="cashTodayIn">0.00 DH</strong></article>
+          <article class="stat-card"><span>مصاريف / سحوبات اليوم</span><strong id="cashTodayOut">0.00 DH</strong></article>
+        </div>
+        <div class="panel form-panel">
+          <form id="cashForm" class="form-grid">
+            <div><label for="cashType">نوع الحركة</label><select id="cashType"><option value="income">إيداع / مداخيل</option><option value="expense">سحب / مصروف</option><option value="opening">الرصيد الافتتاحي (مرة واحدة)</option></select></div>
+            <div><label for="cashDate">التاريخ</label><input id="cashDate" type="date" required></div>
+            <div><label for="cashAmount">المبلغ (DH)</label><input id="cashAmount" type="number" min="0.01" step="0.01" required></div>
+            <div><label for="cashCategory">التصنيف</label><input id="cashCategory" maxlength="80" placeholder="مثلاً: مبيعات، إيداع بنكي، نقل"></div>
+            <div class="wide"><label for="cashDescription">تفاصيل (اختياري)</label><input id="cashDescription" maxlength="240" placeholder="ملاحظة حول الحركة"></div>
+            <div class="wide"><button class="primary" type="submit">＋ تسجيل حركة الصندوق</button></div>
+          </form>
+        </div>
+        <div class="panel table-wrap" id="cashTable"></div>
+        <p class="muted">ملاحظة: هذا السجل يدوي حالياً؛ لا يضيف مبيعات أو أداءات الفواتير تلقائياً حتى لا يقع احتساب المبالغ مرتين.</p>
+      </section>
+
       <section id="page-customers" class="page hidden">
         <div class="section-heading"><div><h3>إدارة الزبائن</h3><p>سجل بيانات الزبائن واستعملها مباشرة عند تسجيل عمليات البيع.</p></div></div>
         <div class="panel form-panel">

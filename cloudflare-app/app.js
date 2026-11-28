@@ -531,44 +531,95 @@ function renderProductImport(){
  target.querySelectorAll("[data-premove]").forEach(btn=>btn.addEventListener("click",()=>{productImportDraft.splice(Number(btn.dataset.premove),1);renderProductImport()}));
 }
 function productImportAutoExtract(lines){
- const normalize=s=>String(s||"").toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\p{L}\p{N}]/gu,"");
+ const normalize=s=>String(s||"").toLocaleLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^\\p{L}\\p{N}]/gu,"");
  const toLatin=s=>String(s||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
- const clean=s=>String(s||"").replace(/\s+/g," ").trim();
- const numberFrom=s=>{const v=toLatin(s).replace(/[٬،]/g,"").match(/\d{1,8}(?:[.,٫]\d{1,3})?/);if(!v)return null;const n=Number(v[0].replace(",",".").replace("٫","."));return Number.isFinite(n)?n:null};
+ const clean=s=>String(s||"").replace(/\\s+/g," ").trim();
+ const numberFrom=s=>{const v=toLatin(s).replace(/[٬،]/g,"").match(/\\d{1,8}(?:[.,٫]\\d{1,3})?/);if(!v)return null;const n=Number(v[0].replace(",",".").replace("٫","."));return Number.isFinite(n)?n:null};
  const valid=(lines||[]).filter(line=>Array.isArray(line.words)&&line.words.length);
  let header=null;
  for(const line of valid){
   const words=line.words.filter(w=>w.text&&w.bbox&&Number.isFinite(w.bbox.x0)&&Number.isFinite(w.bbox.x1));
   const tokens=words.map(w=>({w,t:normalize(w.text),x:(w.bbox.x0+w.bbox.x1)/2}));
-  const find=pattern=>tokens.filter(x=>pattern.test(x.t));
-  const designation=find(/^(designation|designe|libelle|produit|product|article)$/);
-  const qty=find(/^(quantite|quantity|qte)$/);
-  const prix=find(/^prix$/),unit=find(/^(unitaire|unitair|unite)$/),total=find(/^total$/);
-  if(!designation.length||!prix.length||!unit.length)continue;
-  const nearest=(a,b)=>a.reduce((best,x)=>{const y=b.slice().sort((m,n)=>Math.abs(m.x-x.x)-Math.abs(n.x-x.x))[0];return !best||Math.abs(y.x-x.x)<best.d?{x:(x.x+y.x)/2,d:Math.abs(y.x-x.x)}:best},null);
-  const pricePair=nearest(prix,unit);if(!pricePair)continue;
-  const nameX=designation.reduce((n,x)=>n+x.x,0)/designation.length;
+  const names=tokens.filter(x=>/(designation|designe|libelle|produit|product|article)/.test(x.t));
+  const qty=tokens.filter(x=>/(quantite|quantity|qte)/.test(x.t));
+  const unit=tokens.filter(x=>/(unitaire|unitair)/.test(x.t));
+  const prix=tokens.filter(x=>/^prix$/.test(x.t)||/prixunitaire/.test(x.t));
+  const totals=tokens.filter(x=>/total/.test(x.t));
+  if(!names.length||!unit.length||!prix.length)continue;
+  let pair=null;
+  for(const p of prix)for(const u of unit){const d=Math.abs(p.x-u.x);if(!pair||d<pair.d)pair={x:(p.x+u.x)/2,d};}
+  if(!pair)pair={x:prix.find(x=>/prixunitaire/.test(x.t))?.x,d:0};
+  if(!Number.isFinite(pair?.x))continue;
+  const nameX=names.reduce((n,x)=>n+x.x,0)/names.length;
   const qtyX=qty.length?qty.reduce((n,x)=>n+x.x,0)/qty.length:null;
-  const totalX=total.length?total.reduce((n,x)=>n+x.x,0)/total.length:null;
-  if(!(nameX<pricePair.x))continue;
-  header={y:line.bbox?.y1??Math.max(...words.map(w=>w.bbox.y1)),nameX,priceX:pricePair.x,qtyX,totalX};break;
+  const totalX=totals.length?totals.reduce((n,x)=>n+x.x,0)/totals.length:null;
+  if(nameX>=pair.x)continue;
+  header={y:line.bbox?.y1??Math.max(...words.map(w=>w.bbox.y1)),nameX,priceX:pair.x,qtyX,totalX};break;
  }
  if(!header)return [];
- const leftName=header.qtyX===null?(header.nameX+header.priceX)/2:(header.nameX+header.qtyX)/2;
- const leftPrice=header.qtyX===null?(header.nameX+header.priceX)/2:(header.qtyX+header.priceX)/2;
- const rightPrice=header.totalX===null?header.priceX+(header.priceX-leftPrice): (header.priceX+header.totalX)/2;
+ const nameRight=header.qtyX===null?(header.nameX+header.priceX)/2:(header.nameX+header.qtyX)/2;
+ const priceLeft=header.qtyX===null?(header.nameX+header.priceX)/2:(header.qtyX+header.priceX)/2;
+ const priceRight=header.totalX===null?header.priceX+(header.priceX-priceLeft):(header.priceX+header.totalX)/2;
  const rows=[];
  for(const line of valid){
   const y=line.bbox?(line.bbox.y0+line.bbox.y1)/2:0;if(y<=header.y)continue;
   const words=line.words.filter(w=>w.text&&w.bbox&&Number.isFinite(w.bbox.x0)&&Number.isFinite(w.bbox.x1));
-  const nameWords=words.filter(w=>(w.bbox.x0+w.bbox.x1)/2<leftName).sort((a,b)=>a.bbox.x0-b.bbox.x0);
-  const priceWords=words.filter(w=>{const x=(w.bbox.x0+w.bbox.x1)/2;return x>=leftPrice&&x<=rightPrice}).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+  const nameWords=words.filter(w=>(w.bbox.x0+w.bbox.x1)/2<nameRight).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+  const priceWords=words.filter(w=>{const x=(w.bbox.x0+w.bbox.x1)/2;return x>=priceLeft&&x<=priceRight}).sort((a,b)=>a.bbox.x0-b.bbox.x0);
   const name=clean(nameWords.map(w=>w.text).join(" ")),price=numberFrom(priceWords.map(w=>w.text).join(" "));
-  if(name.length>1&&/[A-Za-zÀ-ÿ\u0600-\u06FF]/u.test(name)&&price!==null){
-   if(!/^(designation|designe|produit|product|article|total|montant)$/i.test(normalize(name)))rows.push({name,unit:"",price,stock:0,raw:clean(line.text||line.words.map(w=>w.text).join(" "))});
-  }
+  if(name.length>1&&/[A-Za-zÀ-ÿ\\u0600-\\u06FF]/u.test(name)&&price!==null&&!/^(designation|designe|produit|product|article|total|montant)$/i.test(normalize(name)))rows.push({name,unit:"",price,stock:0,raw:clean(line.text||line.words.map(w=>w.text).join(" "))});
  }
  const seen=new Set();return rows.filter(x=>{const key=normalize(x.name);if(!key||seen.has(key))return false;seen.add(key);return true});
+}
+function productImportPreprocess(source){
+ const sw=source.width||source.videoWidth||source.naturalWidth,sh=source.height||source.videoHeight||source.naturalHeight;
+ if(!sw||!sh)return source;
+ const scale=Math.min(2,2400/Math.max(sw,sh)),w=Math.max(1,Math.round(sw*scale)),h=Math.max(1,Math.round(sh*scale));
+ const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
+ const ctx=canvas.getContext("2d",{willReadFrequently:true});ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);ctx.drawImage(source,0,0,w,h);
+ const image=ctx.getImageData(0,0,w,h),data=image.data,stride=w+1,integral=new Float64Array((w+1)*(h+1));
+ for(let y=1;y<=h;y++){let row=0;for(let x=1;x<=w;x++){const i=((y-1)*w+x-1)*4,g=.299*data[i]+.587*data[i+1]+.114*data[i+2];row+=g;integral[y*stride+x]=integral[(y-1)*stride+x]+row;}}
+ const radius=Math.max(12,Math.round(Math.min(w,h)*.018));
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){const x0=Math.max(0,x-radius),x1=Math.min(w,x+radius),y0=Math.max(0,y-radius),y1=Math.min(h,y+radius),area=(x1-x0+1)*(y1-y0+1),sum=integral[(y1+1)*stride+x1+1]-integral[y0*stride+x1+1]-integral[(y1+1)*stride+x0]+integral[y0*stride+x0],i=(y*w+x)*4,g=.299*data[i]+.587*data[i+1]+.114*data[i+2],v=g>sum/area-9?255:0;data[i]=data[i+1]=data[i+2]=v;data[i+3]=255;}
+ ctx.putImageData(image,0,0);return canvas;
+}
+async function productImportRecognize(worker,source){
+ const results=[];
+ for(const mode of ["6","11"]){
+  await worker.setParameters({tessedit_pageseg_mode:mode});
+  const r=await worker.recognize(source);results.push({mode,data:r.data||{}});
+ }
+ return results;
+}
+async function scanProductTable(){
+ const btn=$("scanProductsBtn"),status=$("productImportStatus"),file=$("productImportFile").files[0];
+ if(!file){status.textContent="اختار صورة أو ملف PDF أولاً.";return toast("اختار صورة أو PDF أولاً")}
+ if(file.size>12*1024*1024){status.textContent="الملف كبير؛ الحد الأقصى 12 MB.";return toast("الحد الأقصى 12 MB")}
+ btn.disabled=true;btn.textContent="جاري القراءة...";
+ try{
+  status.textContent="تحسين وضوح الصورة وتحضير القراءة...";
+  const worker=await invoiceOcrWorker||await invoiceWorker("productImportStatus");
+  const passes=[{text:"",lines:[]},{text:"",lines:[]}];
+  const addPass=(results)=>{
+   results.forEach((r,i)=>{const d=r.data||{};passes[i].text+="\\n"+(d.text||"");if(Array.isArray(d.lines))for(const line of d.lines){if(Array.isArray(line.words)&&line.words.length)passes[i].lines.push(line);}});
+  };
+  if(file.type==="application/pdf"||file.name.toLowerCase().endsWith(".pdf")){
+   await invoiceLoadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js","pdfjsLib");
+   const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer(),disableWorker:true}).promise,pages=Math.min(pdf.numPages,10);
+   for(let n=1;n<=pages;n++){status.textContent="تحسين وقراءة الصفحة "+n+" من "+pages;const page=await pdf.getPage(n),vp=page.getViewport({scale:2}),canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");canvas.width=vp.width;canvas.height=vp.height;await page.render({canvasContext:ctx,viewport:vp}).promise;addPass(await productImportRecognize(worker,productImportPreprocess(canvas)));canvas.width=canvas.height=1;}
+   if(pdf.numPages>10)toast("تمت قراءة أول 10 صفحات فقط");
+  }else{
+   const bitmap=await createImageBitmap(file);addPass(await productImportRecognize(worker,productImportPreprocess(bitmap)));bitmap.close?.();
+  }
+  const candidates=passes.map(p=>({rows:productImportAutoExtract(p.lines),text:p.text,lines:p.lines.length}));
+  candidates.sort((a,b)=>b.rows.length-a.rows.length);
+  productImportDraft=candidates[0].rows;
+  if(!productImportDraft.length)productImportDraft=productImportParse(candidates[0].text,candidates[0].lines?passes[0].lines:[]);
+  $("productImportColumnMapping")?.classList.add("hidden");
+  renderProductImport();
+  status.textContent=productImportDraft.length?"تم استخراج "+productImportDraft.length+" منتجاً بعد تحسين الصورة. راجع الأسماء وأثمنة الوحدة قبل الحفظ؛ المخزون سيبقى صفراً.":"ما قدرناش نقرأ الجدول بوضوح. جرّب ملفاً أوضح أو PDF أصلياً؛ لم يتم حفظ أي منتج.";
+ }catch(e){status.textContent="تعذرت قراءة الملف: "+(e.message||"خطأ غير معروف");console.error("Product table OCR:",e)}
+ finally{btn.disabled=false;btn.textContent="قراءة الجدول من جديد"}
 }
 async function scanProductTable(){
  const btn=$("scanProductsBtn"),status=$("productImportStatus"),file=$("productImportFile").files[0];

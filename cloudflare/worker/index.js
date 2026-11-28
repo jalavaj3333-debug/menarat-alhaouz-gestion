@@ -183,7 +183,7 @@ async function handle(request, env) {
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS customers (id TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
     try { await env.DB.prepare("ALTER TABLE invoices ADD COLUMN customer_name TEXT NOT NULL DEFAULT ''").run(); }
     catch (error) { if (!/duplicate column/i.test(String(error?.message || error))) throw error; }
-    const [products, employees, zones, suppliers, customers, expenses, debts, invoices] = await Promise.all([
+    const [products, employees, zones, customers, suppliers, expenses, debts, invoices] = await Promise.all([
       env.DB.prepare("SELECT id, name AS nom, unit AS unite, price AS prix, opening_stock AS stockInitial, current_stock AS stock, supplier_name AS fournisseur FROM products WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM employees WHERE active=1 ORDER BY name").all(),
       env.DB.prepare("SELECT id, name FROM zones WHERE active=1 ORDER BY name").all(),
